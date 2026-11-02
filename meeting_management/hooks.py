@@ -10,6 +10,17 @@ app_description = "meeting"
 app_email = "info@finbyz.tech"
 app_license = "MIT"
 
+# apps screen tile (Elevate, 3 Nov 2026): only for the roles that can read Meeting
+add_to_apps_screen = [
+	{
+		"name": "meeting_management",
+		"logo": "/assets/meeting_management/images/meeting-management-logo.svg",
+		"title": "Meeting Management",
+		"route": "/desk/meeting-management",
+		"has_permission": "meeting_management.api.has_app_permission",
+	}
+]
+
 # Includes in <head>
 # ------------------
 

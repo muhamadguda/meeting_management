@@ -1,3 +1,4 @@
+import frappe
 from frappe import _
 
 # Customer Dashboard
@@ -53,3 +54,6 @@ def lead_get_data(data):
 		]
 	}
 
+
+def has_app_permission():
+	return bool({"System Manager", "Sales Manager", "Sales User"} & set(frappe.get_roles()))

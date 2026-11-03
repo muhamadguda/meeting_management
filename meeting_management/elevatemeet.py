@@ -138,6 +138,18 @@ def interview_meeting(doc, method=None):
 	s.insert(ignore_permissions=True)
 
 
+def unlink_on_party(doc, method=None):
+	"""Meeting Schedule on_trash: the lead's or applicant's "Meeting" link moves to its previous meeting (or clears), so a
+	meeting can be deleted (found in the 3 Nov 2026 demo)."""
+	for dt in ("Lead", "Job Applicant"):
+		if not frappe.get_meta(dt).has_field("custom_meeting_schedule"):
+			continue
+		for party in frappe.get_all(dt, filters={"custom_meeting_schedule": doc.name}, pluck="name"):
+			prev = frappe.get_all("Meeting Schedule", filters={"party_type": dt, "party": party, "name": ["!=", doc.name]},
+				pluck="name", order_by="scheduled_from desc, creation desc", limit=1)
+			frappe.db.set_value(dt, party, "custom_meeting_schedule", prev[0] if prev else None, update_modified=False)
+
+
 def link_on_party(doc):
 	"""The lead's or applicant's "Meeting" link shows its latest meeting (user, 3 Nov 2026)."""
 	if doc.party_type in ("Lead", "Job Applicant") and doc.party and frappe.get_meta(doc.party_type).has_field("custom_meeting_schedule"):

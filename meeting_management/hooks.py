@@ -130,6 +130,7 @@ doc_events = {
 	"Meeting Schedule": {
 		"validate": "meeting_management.elevatemeet.schedule_validate",
 		"on_update": "meeting_management.elevatemeet.schedule_on_update",
+		"on_trash": "meeting_management.elevatemeet.unlink_on_party",
 	},
 }
 

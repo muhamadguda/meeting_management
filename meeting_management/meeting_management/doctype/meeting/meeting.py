@@ -48,9 +48,9 @@ class Meeting(Document):
 		user_name = frappe.db.get_value("Employee",{"user_id":frappe.session.user},"employee_name")
 		url = get_url_to_form("Meeting", self.name)
 		if user_name:
-			discussed = "<strong><a href="+url+">"+self.name+"</a>: </strong>"+ user_name + " Met "+ str(self.contact_person) + " On "+ self.meeting_from +"<br>" + self.discussion.replace('\n', "<br>")
+			discussed = "<strong><a href="+url+">"+self.name+"</a>: </strong>"+ user_name + " Met "+ str(self.contact_person) + " On "+ str(self.meeting_from) +"<br>" + self.discussion.replace('\n', "<br>")
 		else:
-			discussed = "<strong><a href="+url+">"+self.name+"</a>: </strong>"+ frappe.session.user + " Met "+ str(self.contact_person)+ " On "+ self.meeting_from +"<br>" + self.discussion.replace('\n', "<br>")
+			discussed = "<strong><a href="+url+">"+self.name+"</a>: </strong>"+ frappe.session.user + " Met "+ str(self.contact_person)+ " On "+ str(self.meeting_from) +"<br>" + self.discussion.replace('\n', "<br>")
 
 		cm = frappe.new_doc("Comment")
 		cm.subject = self.name
@@ -186,7 +186,7 @@ def send_mail(self):
 	email_account = EmailAccount.find_outgoing(match_by_doctype=None)
 	password = get_decrypted_password(email_account.doctype, email_account.name, "password")
 
-	smtpserver = SMTPServer(server = email_account.smtp_server, login = email_account.email_id, password = password, service = email_account.service, port=email_account.smtp_port, use_ssl = email_account.use_ssl_for_outgoing, use_tls = email_account.use_tls)
+	smtpserver = SMTPServer(server = email_account.smtp_server, login = email_account.email_id, password = password, port=email_account.smtp_port, use_ssl = email_account.use_ssl_for_outgoing, use_tls = email_account.use_tls)
 	smtpserver.session.sendmail(default_sender, attendees, msg.as_string())
 	frappe.msgprint(_("Mail sent successfully"))
 

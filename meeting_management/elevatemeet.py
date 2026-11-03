@@ -32,7 +32,7 @@ def schedule_from_deal(doc, method=None):
 	organiser = doc.get("opportunity_owner") or event.owner
 	schedule = frappe.get_doc({
 		"doctype": "Meeting Schedule",
-		"meeting_type": "Client",
+		"meeting_type": "External",
 		"party_type": "Lead" if lead else None,
 		"party": lead,
 		"lead": lead,
@@ -113,7 +113,7 @@ def notes_submitted(doc, method=None):
 # ---------------------------------------------------------------- schedule rules
 
 def schedule_validate(doc, method=None):
-	doc.meeting_type = doc.meeting_type or "Client"
+	doc.meeting_type = doc.meeting_type or "External"
 	doc.status = doc.status or "Scheduled"
 	if not doc.meeting_arranged_by:
 		doc.meeting_arranged_by = frappe.session.user if frappe.session.user != "Administrator" else None
@@ -122,7 +122,7 @@ def schedule_validate(doc, method=None):
 		if not doc.organisation:
 			doc.organisation = _("Internal")
 	elif not doc.organisation and not doc.flags.ignore_mandatory:
-		frappe.throw(_("Organisation is required for a client meeting."))
+		frappe.throw(_("Pick the lead or job applicant for an external meeting."))
 	if doc.scheduled_from and doc.scheduled_to and get_datetime(doc.scheduled_to) < get_datetime(doc.scheduled_from):
 		frappe.throw(_("The meeting must end after it starts."))
 	seen = set()
@@ -131,9 +131,82 @@ def schedule_validate(doc, method=None):
 			doc.remove(row)
 			continue
 		seen.add(row.user)
+	check_departments(doc, users=[r.user for r in doc.get("attendees") or []])
 	before = doc.get_doc_before_save()
 	if before and str(before.scheduled_from) != str(doc.scheduled_from):
 		doc.reminded = 0
+
+
+# ---------------------------------------------------------------- internal meetings: departments (option A, 3 Nov 2026)
+
+def meeting_validate(doc, method=None):
+	"""Meeting (notes) validate: an internal meeting's Elevate people come from its department(s)."""
+	doc.meeting_type = doc.meeting_type or "External"
+	if doc.meeting_type == "Internal":
+		doc.party_type = doc.party = None
+	check_departments(doc, employees=[r.employee for r in doc.get("meeting_company_representative") or [] if r.employee])
+
+
+def chosen_departments(doc):
+	if doc.get("department_scope") == "Same Department":
+		return [doc.department] if doc.get("department") else []
+	return [r.department for r in doc.get("departments") or [] if r.department]
+
+
+def check_departments(doc, users=None, employees=None):
+	if doc.get("meeting_type") != "Internal":
+		doc.department_scope = doc.department = None
+		doc.set("departments", [])
+		return
+	organiser = doc.get("meeting_arranged_by")
+	if doc.department_scope == "Same Department" and not doc.department and organiser:
+		doc.department = frappe.db.get_value("Employee", {"user_id": organiser, "status": "Active"}, "department")
+	if doc.department_scope == "Same Department":
+		doc.set("departments", [])
+	elif doc.department_scope == "Different Departments":
+		doc.department = None
+	depts = chosen_departments(doc)
+	if not depts:
+		return
+	outside = []
+	for u in users or []:
+		if u != organiser and frappe.db.get_value("Employee", {"user_id": u, "status": "Active"}, "department") not in depts:
+			outside.append(frappe.db.get_value("User", u, "full_name") or u)
+	for e in employees or []:
+		row = frappe.db.get_value("Employee", e, ["department", "user_id", "employee_name"], as_dict=True) or {}
+		if row.get("user_id") != organiser and row.get("department") not in depts:
+			outside.append(row.get("employee_name") or e)
+	if outside:
+		frappe.throw(_("These people aren't in {0}: {1}").format(", ".join(depts), ", ".join(outside)), title=_("Wrong department"))
+
+
+@frappe.whitelist()
+def organiser_department(user=None):
+	return frappe.db.get_value("Employee", {"user_id": user or frappe.session.user, "status": "Active"}, "department")
+
+
+@frappe.whitelist()
+def department_people(departments):
+	"""Active employees with a login in the given department(s), for "Add Department Members"."""
+	depts = frappe.parse_json(departments) if isinstance(departments, str) else departments
+	if not depts:
+		return []
+	return frappe.get_all("Employee", filters={"status": "Active", "department": ["in", depts], "user_id": ["is", "set"]},
+		fields=["name as employee", "employee_name", "user_id as user", "department"], order_by="employee_name asc")
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def staff_query(doctype, txt, searchfield, start, page_len, filters):
+	"""The attendee picker: active staff of the chosen department(s), or everyone when none is chosen."""
+	depts = (filters or {}).get("departments") or []
+	cond = "and e.department in %(depts)s" if depts else ""
+	return frappe.db.sql("""select u.name, u.full_name, e.department from `tabUser` u
+		left join `tabEmployee` e on e.user_id = u.name and e.status = 'Active'
+		where u.enabled = 1 and u.user_type = 'System User' and u.name not in ('Administrator', 'Guest')
+		and (u.name like %(t)s or u.full_name like %(t)s) {cond}
+		order by u.full_name limit %(start)s, %(len)s""".format(cond=cond),
+		{"t": "%" + (txt or "") + "%", "depts": tuple(depts) or ("",), "start": int(start), "len": int(page_len)})
 
 
 def schedule_on_update(doc, method=None):
@@ -160,9 +233,42 @@ def is_staff(user):
 
 # ---------------------------------------------------------------- invites
 
+def settings():
+	"""ElevateMeet Settings, with the defaults when the page was never saved."""
+	s = frappe.get_cached_doc("ElevateMeet Settings") if frappe.db.exists("DocType", "ElevateMeet Settings") else frappe._dict()
+	return frappe._dict(
+		send_reminders=1 if s.get("send_reminders") is None else s.get("send_reminders"),
+		reminder_minutes=s.get("reminder_minutes") or 60,
+		default_duration=s.get("default_duration") or 60,
+		send_staff_invites=1 if s.get("send_staff_invites") is None else s.get("send_staff_invites"),
+		staff_invite_note=s.get("staff_invite_note") or "",
+	)
+
+
+@frappe.whitelist()
+def default_duration():
+	return settings().default_duration
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def party_query(doctype, txt, searchfield, start, page_len, filters):
+	"""External parties show their ID and name: a lead's company and contact, an applicant's name and job opening."""
+	like = "%" + (txt or "") + "%"
+	if doctype == "Job Applicant":
+		return frappe.db.sql("""select name, applicant_name, job_title from `tabJob Applicant`
+			where name like %(t)s or applicant_name like %(t)s or phone_number like %(t)s or email_id like %(t)s
+			order by modified desc limit %(start)s, %(len)s""", {"t": like, "start": int(start), "len": int(page_len)})
+	return frappe.db.sql("""select name, company_name, lead_name from `tabLead`
+		where name like %(t)s or company_name like %(t)s or lead_name like %(t)s or phone like %(t)s
+		order by modified desc limit %(start)s, %(len)s""", {"t": like, "start": int(start), "len": int(page_len)})
+
+
 def send_staff_invites(doc):
 	"""A calendar invite to the organiser and Elevate attendees; an update when the time or attendees change; a
 	cancellation when the meeting is cancelled."""
+	if not settings().send_staff_invites:
+		return
 	users = staff_recipients(doc)
 	emails = sorted(e for e in (frappe.db.get_value("User", u, "email") for u in users) if e)
 	key = "|".join([str(doc.scheduled_from), str(doc.scheduled_to), ",".join(emails), doc.status or ""])
@@ -214,7 +320,7 @@ def clean(text):
 
 
 def title(doc):
-	if doc.meeting_type == "Internal":
+	if doc.get("meeting_type") == "Internal":
 		return _("Internal meeting: {0}").format(doc.get("meeting_agenda") and clean(doc.meeting_agenda)[:60] or doc.name)
 	return _("Meeting: {0}").format(doc.organisation or doc.party or doc.name)
 
@@ -230,6 +336,7 @@ def send_ics(doc, recipients, sequence, cancel=False, message=None):
 		"<p>" + (_("This meeting was cancelled.") if cancel else _("You're invited to this meeting.")) + "</p>"
 		+ "<p><b>" + frappe.utils.escape_html(title(doc)) + "</b><br>" + when + "</p>"
 		+ ("<p>" + frappe.utils.escape_html(clean(doc.meeting_agenda).replace("\\", "")) + "</p>" if doc.get("meeting_agenda") else "")
+		+ ("<p>" + frappe.utils.escape_html(settings().staff_invite_note) + "</p>" if settings().staff_invite_note else "")
 		+ '<p><a href="' + get_url_to_form("Meeting Schedule", doc.name) + '">' + _("Open in ElevateMeet") + "</a></p>"
 	)
 	frappe.sendmail(
@@ -261,12 +368,12 @@ def send_to_client(name):
 
 def send_reminders():
 	"""Every 15 minutes: a Raven message about an hour before each scheduled meeting, once."""
-	if "raven" not in frappe.get_installed_apps() or not frappe.db.exists("Raven Bot", BOT):
+	if "raven" not in frappe.get_installed_apps() or not frappe.db.exists("Raven Bot", BOT) or not settings().send_reminders:
 		return
 	now = now_datetime()
 	due = frappe.get_all("Meeting Schedule", filters={
 		"status": "Scheduled", "reminded": 0,
-		"scheduled_from": ["between", [now, add_to_date(now, minutes=75)]],
+		"scheduled_from": ["between", [now, add_to_date(now, minutes=int(settings().reminder_minutes) + 15)]],
 	}, pluck="name")
 	if not due:
 		return

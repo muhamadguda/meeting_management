@@ -68,8 +68,6 @@ class Meeting(Document):
 			target_lead.turnover = self.turnover
 			target_lead.industry = self.industry
 			target_lead.business_specifics = self.business_specifics
-			target_lead.contact_by = self.contact_by
-			target_lead.contact_date = self.contact_date
 			if not target_lead.email_id:
 				target_lead.email_id = self.email_id
 			if not target_lead.lead_name:

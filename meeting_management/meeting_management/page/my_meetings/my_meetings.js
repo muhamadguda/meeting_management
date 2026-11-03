@@ -21,7 +21,7 @@ frappe.pages["my-meetings"].on_page_load = function (wrapper) {
 			</span>
 			<span style="flex:1;min-width:0;">
 				<b style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${frappe.utils.escape_html(r.organisation || r.name)}</b>
-				<span class="text-muted small">${when(r)}${r.is_online ? " · " + __("Online") : ""} · ${__(r.meeting_type || "Client")}</span>
+				<span class="text-muted small">${when(r)}${r.is_online ? " · " + __("Online") : ""} · ${__(r.meeting_type || "External")}</span>
 			</span>
 			${action || ""}
 		</a>`;

@@ -14,6 +14,9 @@
   "lead",
   "party_type",
   "party",
+  "department_scope",
+  "department",
+  "departments",
   "scheduled_time",
   "organization",
   "meeting_from",
@@ -43,19 +46,7 @@
   "actionable",
   "actionables",
   "sec_brk1",
-  "contact_by",
   "send_mail",
-  "col_brk1",
-  "contact_date",
-  "expenses",
-  "expense_done_by",
-  "local_travel_expense",
-  "train_tickets",
-  "column_break_expense",
-  "flight_ticket",
-  "food_expense",
-  "lodging_cost",
-  "total_expense",
   "customer",
   "opportunity",
   "amended_from"
@@ -73,9 +64,12 @@
   {
    "fieldname": "meeting_type",
    "fieldtype": "Select",
-   "label": "Meeting With",
-   "options": "Client\nInternal",
-   "default": "Client"
+   "label": "Meeting Type",
+   "options": "External\nInternal",
+   "default": "External",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
   },
   {
    "fieldname": "schedule_ref",
@@ -99,7 +93,7 @@
    "fieldtype": "Select",
    "in_standard_filter": 1,
    "label": "Party Type",
-   "options": "\nLead\nCustomer\nSupplier",
+   "options": "\nLead\nJob Applicant",
    "depends_on": "eval:doc.meeting_type!='Internal'"
   },
   {
@@ -108,6 +102,30 @@
    "label": "Party",
    "options": "party_type",
    "depends_on": "eval:doc.meeting_type!='Internal'"
+  },
+  {
+   "fieldname": "department_scope",
+   "fieldtype": "Select",
+   "label": "Party Type",
+   "options": "\nSame Department\nDifferent Departments",
+   "depends_on": "eval:doc.meeting_type=='Internal'",
+   "mandatory_depends_on": "eval:doc.meeting_type=='Internal'"
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "label": "Department",
+   "options": "Department",
+   "depends_on": "eval:doc.meeting_type=='Internal' && doc.department_scope=='Same Department'",
+   "mandatory_depends_on": "eval:doc.meeting_type=='Internal' && doc.department_scope=='Same Department'"
+  },
+  {
+   "fieldname": "departments",
+   "fieldtype": "Table MultiSelect",
+   "label": "Departments",
+   "options": "Meeting Department",
+   "depends_on": "eval:doc.meeting_type=='Internal' && doc.department_scope=='Different Departments'",
+   "mandatory_depends_on": "eval:doc.meeting_type=='Internal' && doc.department_scope=='Different Departments'"
   },
   {
    "fieldname": "scheduled_time",
@@ -119,7 +137,7 @@
    "fieldname": "organization",
    "fieldtype": "Data",
    "in_standard_filter": 1,
-   "label": "Organization",
+   "label": "Name",
    "read_only": 1
   },
   {
@@ -151,8 +169,9 @@
    "fieldtype": "Link",
    "ignore_user_permissions": 1,
    "in_standard_filter": 1,
-   "label": "Meeting Arranged By",
-   "options": "User"
+   "label": "Organiser",
+   "options": "User",
+   "default": "__user"
   },
   {
    "fieldname": "salutation",
@@ -192,7 +211,6 @@
    "fieldtype": "Data",
    "label": "Email Id",
    "reqd": 0,
-   "mandatory_depends_on": "eval:doc.meeting_type!='Internal'",
    "depends_on": "eval:doc.meeting_type!='Internal'"
   },
   {
@@ -212,7 +230,8 @@
   {
    "fieldname": "company_details",
    "fieldtype": "Section Break",
-   "label": "Company Details"
+   "label": "Company Details",
+   "depends_on": "eval:doc.party_type=='Lead'"
   },
   {
    "fieldname": "turnover",
@@ -234,7 +253,8 @@
    "label": "Industry",
    "options": "Industry Type",
    "reqd": 0,
-   "mandatory_depends_on": "eval:doc.meeting_type!='Internal'"
+   "mandatory_depends_on": "eval:!doc.__islocal && doc.party_type=='Lead'",
+   "depends_on": "eval:doc.party_type=='Lead'"
   },
   {
    "fieldname": "business_specifics",
@@ -273,7 +293,8 @@
    "fieldname": "discussion",
    "fieldtype": "Text Editor",
    "label": "Discussion",
-   "reqd": 1
+   "reqd": 0,
+   "mandatory_depends_on": "eval:!doc.__islocal"
   },
   {
    "fieldname": "actionable",
@@ -291,69 +312,9 @@
    "fieldtype": "Section Break"
   },
   {
-   "fieldname": "contact_by",
-   "fieldtype": "Link",
-   "label": "Next Contact By",
-   "options": "User"
-  },
-  {
    "fieldname": "send_mail",
    "fieldtype": "Button",
    "label": "Send Mail"
-  },
-  {
-   "fieldname": "col_brk1",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "contact_date",
-   "fieldtype": "Date",
-   "label": "Next Contact Date"
-  },
-  {
-   "fieldname": "expenses",
-   "fieldtype": "Section Break",
-   "label": "Expenses"
-  },
-  {
-   "fieldname": "expense_done_by",
-   "fieldtype": "Link",
-   "label": "Expense Done By",
-   "options": "Employee"
-  },
-  {
-   "fieldname": "local_travel_expense",
-   "fieldtype": "Currency",
-   "label": "Local Travel Expense"
-  },
-  {
-   "fieldname": "train_tickets",
-   "fieldtype": "Currency",
-   "label": "Train Tickets"
-  },
-  {
-   "fieldname": "column_break_expense",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "flight_ticket",
-   "fieldtype": "Currency",
-   "label": "Flight Ticket"
-  },
-  {
-   "fieldname": "food_expense",
-   "fieldtype": "Currency",
-   "label": "Food Expense"
-  },
-  {
-   "fieldname": "lodging_cost",
-   "fieldtype": "Currency",
-   "label": "Lodging Cost"
-  },
-  {
-   "fieldname": "total_expense",
-   "fieldtype": "Currency",
-   "label": "Total Expense"
   },
   {
    "fieldname": "customer",
@@ -382,7 +343,7 @@
  "icon": "fa fa-handshake-o",
  "is_submittable": 1,
  "links": [],
- "modified": "2026-11-03 12:00:00.000000",
+ "modified": "2026-11-03 20:00:00.000000",
  "modified_by": "Administrator",
  "module": "Meeting Management",
  "name": "Meeting",

@@ -1,0 +1,107 @@
+{
+ "actions": [],
+ "creation": "2026-11-03 18:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "issingle": 1,
+ "field_order": [
+  "reminders_section",
+  "send_reminders",
+  "reminder_minutes",
+  "column_break_r",
+  "default_duration",
+  "invites_section",
+  "send_staff_invites",
+  "staff_invite_note"
+ ],
+ "fields": [
+  {
+   "fieldname": "reminders_section",
+   "fieldtype": "Section Break",
+   "label": "Reminders"
+  },
+  {
+   "fieldname": "send_reminders",
+   "fieldtype": "Check",
+   "label": "Send Raven Reminders",
+   "default": "1",
+   "description": "The ElevateMeet bot messages the organiser and Elevate attendees before each meeting."
+  },
+  {
+   "fieldname": "reminder_minutes",
+   "fieldtype": "Int",
+   "label": "Remind Before (Minutes)",
+   "default": "60",
+   "non_negative": 1,
+   "depends_on": "send_reminders"
+  },
+  {
+   "fieldname": "column_break_r",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_duration",
+   "fieldtype": "Int",
+   "label": "Default Meeting Length (Minutes)",
+   "default": "60",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "invites_section",
+   "fieldtype": "Section Break",
+   "label": "Calendar Invites"
+  },
+  {
+   "fieldname": "send_staff_invites",
+   "fieldtype": "Check",
+   "label": "Send Calendar Invites to Elevate Attendees",
+   "default": "1"
+  },
+  {
+   "fieldname": "staff_invite_note",
+   "fieldtype": "Small Text",
+   "label": "Note in the Invite Email",
+   "depends_on": "send_staff_invites",
+   "description": "Optional text added to every staff invite."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-03 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Meeting Management",
+ "name": "ElevateMeet Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Sales Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

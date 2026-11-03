@@ -45,7 +45,6 @@ add_to_apps_screen = [
 # include js in doctype views
 doctype_js = {
     "Lead":"public/js/lead.js",
-    "Customer":"public/js/customer.js",
     "Opportunity":"public/js/opportunity.js"
 }
 # doctype_js = {"doctype" : "public/js/doctype.js"}
@@ -124,7 +123,10 @@ doc_events = {
 		"validate": "meeting_management.elevatemeet.schedule_validate",
 		"on_update": "meeting_management.elevatemeet.schedule_on_update",
 	},
-	"Meeting": {"on_submit": "meeting_management.elevatemeet.notes_submitted"},
+	"Meeting": {
+		"validate": "meeting_management.elevatemeet.meeting_validate",
+		"on_submit": "meeting_management.elevatemeet.notes_submitted",
+	},
 }
 
 scheduler_events = {

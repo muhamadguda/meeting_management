@@ -113,6 +113,16 @@ class MeetingSchedule(Document):
 		doc.email_account = default_sender_name
 		doc.save(ignore_permissions=True)
 		frappe.msgprint("Mail Sent Successfully")
+def add_representatives(source, target):
+	"""ElevateMeet: the organiser and Elevate attendees become the meeting's company representatives."""
+	users = [source.meeting_arranged_by] + [r.user for r in source.get("attendees") or []]
+	have = {r.employee for r in target.get("meeting_company_representative") or []}
+	for u in dict.fromkeys(u for u in users if u):
+		e = frappe.db.get_value("Employee", {"user_id": u, "status": "Active"}, ["name", "employee_name"], as_dict=True)
+		if e and e.name not in have:
+			target.append("meeting_company_representative", {"employee": e.name, "employee_name": e.employee_name, "emp_user_id": u})
+
+
 @frappe.whitelist()
 def make_meeting(source_name, target_doc=None):	
 	doclist = get_mapped_doc("Meeting Schedule", source_name, {
@@ -134,8 +144,9 @@ def make_meeting(source_name, target_doc=None):
 					"opportunity",
 					"email_id"
 				]
-			}
-	}, target_doc)	
+			},
+			"Meeting Department": {"doctype": "Meeting Department"},
+	}, target_doc, add_representatives)	
 	return doclist
 	
 @frappe.whitelist()
@@ -188,6 +199,13 @@ def _get_party_details(party=None, party_type="Customer", ignore_permissions=Fal
 	out = frappe._dict({
 		party_type.lower(): party
 	})
+	if party_type == "Job Applicant":   # ElevateMeet (3 Nov 2026): applicants meet Elevate too
+		if not ignore_permissions and not frappe.has_permission(party_type, "read", party):
+			frappe.throw(_("Not permitted for {0}").format(party), frappe.PermissionError)
+		a = frappe.db.get_value("Job Applicant", party, ["applicant_name", "email_id", "phone_number"], as_dict=True) or {}
+		out.update({"organisation": a.get("applicant_name"), "contact_person": None, "contact_display": a.get("applicant_name"),
+			"contact_dispaly": a.get("applicant_name"), "contact_email": a.get("email_id"), "contact_mobile": a.get("phone_number")})
+		return out
 
 	if not ignore_permissions and not frappe.has_permission(party_type, "read", party):
 		frappe.throw(_("Not permitted for {0}").format(party), frappe.PermissionError)

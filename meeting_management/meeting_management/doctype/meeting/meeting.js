@@ -1,27 +1,48 @@
 // Copyright (c) 2023, FinByz Tech Pvt. Ltd. and contributors
 // For license information, please see license.txt
 
-var calculate_total_expense = function(frm) {
-    var total_expense = flt(frm.doc.local_travel_expense) + flt(frm.doc.train_tickets) + flt(frm.doc.flight_ticket) + flt(frm.doc.food_expense)+flt(frm.doc.lodging_cost);
-    frm.set_value("total_expense", total_expense);
-};
-frappe.ui.form.on("Meeting", "local_travel_expense", function(frm) {
-    calculate_total_expense(frm);
-});
-frappe.ui.form.on("Meeting", "train_tickets", function(frm) {
-    calculate_total_expense(frm);
-});
-frappe.ui.form.on("Meeting", "flight_ticket", function(frm) {
-    calculate_total_expense(frm);
-});
-frappe.ui.form.on("Meeting", "food_expense", function(frm) {
-    calculate_total_expense(frm);
-});
-frappe.ui.form.on("Meeting", "lodging_cost", function(frm) {
-    calculate_total_expense(frm);
-});
 
-frappe.ui.form.on('Meeting', {
+// ElevateMeet (3 Nov 2026, option A): an internal meeting's people come from the same department or chosen departments
+var elevatemeet_departments = (frm) =>
+	frm.doc.meeting_type !== "Internal" ? [] :
+	frm.doc.department_scope === "Same Department" ? (frm.doc.department ? [frm.doc.department] : []) :
+	(frm.doc.departments || []).map((r) => r.department).filter(Boolean);
+
+var elevatemeet_department_events = {
+	department_scope(frm) {
+		if (frm.doc.department_scope === "Same Department" && !frm.doc.department) {
+			frappe.xcall("meeting_management.elevatemeet.organiser_department", { user: frm.doc.meeting_arranged_by })
+				.then((d) => d && frm.set_value("department", d));
+		}
+	},
+	meeting_type(frm) {
+		frm.trigger("refresh");
+	},
+};
+
+function elevatemeet_add_members(frm, table, to_row) {
+	if (frm.doc.meeting_type !== "Internal" || frm.doc.docstatus > 0) return;
+	frm.add_custom_button(__("Add Department Members"), () => {
+		const depts = elevatemeet_departments(frm);
+		if (!depts.length) {
+			frappe.msgprint(__("Pick the department first."));
+			return;
+		}
+		frappe.xcall("meeting_management.elevatemeet.department_people", { departments: depts }).then((people) => {
+			const have = new Set((frm.doc[table] || []).map((r) => r.user || r.employee));
+			let added = 0;
+			(people || []).forEach((p) => {
+				if (p.user === frm.doc.meeting_arranged_by || have.has(p.user) || have.has(p.employee)) return;
+				Object.assign(frm.add_child(table), to_row(p));
+				added++;
+			});
+			frm.refresh_field(table);
+			frappe.show_alert({ message: __("{0} people added", [added]), indicator: "green" });
+		});
+	});
+}
+
+frappe.ui.form.on('Meeting', Object.assign({}, elevatemeet_department_events, {
 	send_mail: function(frm){
 		if (frm.is_dirty()){
 			frappe.throw("Please Save the Current Document and Then Proceed again")
@@ -36,6 +57,22 @@ frappe.ui.form.on('Meeting', {
 		}
 	},
 	refresh: function(frm) {
+		// ElevateMeet (3 Nov 2026, user): a new meeting asks only for the type, organiser and time; the rest after saving
+		if (frm.is_new()) {
+			const keep = ['meeting_type', 'meeting_arranged_by', 'meeting_from', 'meeting_to'];
+			const breaks = ['Section Break', 'Column Break', 'Tab Break'];
+			frm.meta.fields.forEach((df) => {
+				if (!breaks.includes(df.fieldtype) && !keep.includes(df.fieldname)) frm.toggle_display(df.fieldname, false);
+			});
+			frm.set_intro(__('Pick the meeting type, organiser and time, then save to fill in the rest.'), 'blue');
+		}
+		// ElevateMeet: an external meeting is with a lead (company) or a job applicant, shown with ID and name
+		frm.set_query('party', () => ({ query: 'meeting_management.elevatemeet.party_query' }));
+		frm.set_query('employee', 'meeting_company_representative', () => {
+			const depts = elevatemeet_departments(frm);
+			return { filters: depts.length ? { status: 'Active', department: ['in', depts] } : { status: 'Active' } };
+		});
+		elevatemeet_add_members(frm, 'meeting_company_representative', (p) => ({ employee: p.employee, employee_name: p.employee_name, emp_user_id: p.user }));
 		frm.fields_dict.contact_person.get_query = function(doc) {
 			return {
 				query: 'frappe.contacts.doctype.contact.contact.contact_query',
@@ -112,16 +149,6 @@ frappe.ui.form.on('Meeting', {
 			}
 		}		
 	},
-	total_kms:function(frm){
-		if ((frappe.meta.get_docfield("Meeting", "total_kms")) && (frappe.meta.get_docfield("Meeting", "rate_per_km"))){
-			frm.set_value('local_travel_expense',flt(frm.doc.total_kms) * flt(frm.doc.rate_per_km))
-		}		
-	},
-	rate_per_km: function(frm){
-		if ((frappe.meta.get_docfield("Meeting", "total_kms")) && (frappe.meta.get_docfield("Meeting", "rate_per_km"))){
-			frm.set_value('local_travel_expense',flt(frm.doc.total_kms) * flt(frm.doc.rate_per_km))
-		}			
-	},
     meeting_arranged_by: function(frm) {
         if (frm.doc.__islocal) {
             frappe.db.get_value("Employee", {"user_id": frm.doc.meeting_arranged_by}, ["name"], function(value) {
@@ -161,4 +188,4 @@ frappe.ui.form.on('Meeting', {
             }
         }
     }
-});
+}));

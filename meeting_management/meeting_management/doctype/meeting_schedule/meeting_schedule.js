@@ -112,16 +112,19 @@ frappe.ui.form.on('Meeting Schedule', Object.assign({}, elevatemeet_department_e
 		// ElevateMeet (3 Nov 2026, user): Send Mail sends the meeting and its Notes, in the reminder's layout
 		if (!frm.is_new() && frm.doc.status !== "Cancelled") {
 			frm.add_custom_button(__("Send Mail"), () => {
-				const open = () => frappe.xcall("meeting_management.elevatemeet.mail_recipients", { name: frm.doc.name }).then((to) => {
+				const open = () => frappe.xcall("meeting_management.elevatemeet.mail_recipients", { name: frm.doc.name }).then((r) => {
 					const d = new frappe.ui.Dialog({
 						title: __("Send Mail"),
-						fields: [{ fieldname: "recipients", fieldtype: "Small Text", label: __("To"), reqd: 1, default: (to || []).join(", "),
-							description: __("Separate addresses with commas. Elevate people get an Open the meeting button.") }],
+						fields: [
+							{ fieldname: "to", fieldtype: "Small Text", label: __("To"), reqd: 1, default: ((r && r.to) || []).join(", ") },
+							{ fieldname: "cc", fieldtype: "Small Text", label: __("CC"), default: ((r && r.cc) || []).join(", "),
+								description: __("One email to everyone; separate addresses with commas.") },
+						],
 						primary_action_label: __("Send"),
 						primary_action(v) {
-							frappe.xcall("meeting_management.elevatemeet.send_meeting_mail", { name: frm.doc.name, recipients: v.recipients }).then((sent) => {
+							frappe.xcall("meeting_management.elevatemeet.send_meeting_mail", { name: frm.doc.name, to: v.to, cc: v.cc }).then((sent) => {
 								d.hide();
-								frappe.show_alert({ message: __("Sent to {0}", [(sent || []).join(", ")]), indicator: "green" });
+								frappe.show_alert({ message: __("Sent to {0}", [[...(sent.to || []), ...(sent.cc || [])].join(", ")]), indicator: "green" });
 								frm.reload_doc();
 							});
 						},

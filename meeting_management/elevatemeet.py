@@ -442,51 +442,57 @@ def remind(user, s, test=False):
 
 @frappe.whitelist()
 def mail_recipients(name):
-	"""Who "Send Mail" offers: the organiser and Elevate attendees, and for an External Meeting the client and CC To."""
+	"""Send Mail's To and CC (user, 3 Nov 2026): To = the client for an External Meeting, else the organiser;
+	CC = the organiser and Elevate attendees (and CC To people), so everyone sees the same email."""
 	s = frappe.get_doc("Meeting Schedule", name)
 	s.check_permission("read")
 	staff = [frappe.db.get_value("User", u, "email") for u in staff_recipients(s)]
-	out = [e for e in staff if e]
 	if s.get("meeting_type") == "External Meeting":
-		out += [frappe.db.get_value("User", r.user, "email") for r in s.get("cc_people") or [] if r.user]
-		if s.email_id:
-			out.append(s.email_id)
-	return list(dict.fromkeys(e for e in out if e))
+		staff += [frappe.db.get_value("User", r.user, "email") for r in s.get("cc_people") or [] if r.user]
+	organiser = frappe.db.get_value("User", s.meeting_arranged_by, "email") if s.meeting_arranged_by and is_staff(s.meeting_arranged_by) else None
+	to = [s.email_id] if s.get("meeting_type") == "External Meeting" and s.email_id else ([organiser] if organiser else [])
+	cc = [e for e in dict.fromkeys(e for e in staff if e) if e not in to]
+	if not to and cc:
+		to, cc = [cc[0]], cc[1:]
+	return {"to": to, "cc": cc}
+
+
+def parse_emails(value):
+	if isinstance(value, str) and value.strip().startswith("["):
+		items = frappe.parse_json(value)
+	else:
+		items = [x.strip() for x in str(value or "").replace(";", ",").replace("\n", ",").split(",") if x.strip()]
+	return list(dict.fromkeys(e for e in items if frappe.utils.validate_email_address(e)))
 
 
 @frappe.whitelist()
-def send_meeting_mail(name, recipients):
-	"""The "Send Mail" button (user, 3 Nov 2026): the meeting in the reminder's layout, with its Notes. Elevate people
-	get the "Open the meeting" button; people outside Elevate (the client) don't, they can't sign in."""
+def send_meeting_mail(name, to, cc=None):
+	"""The "Send Mail" button (user, 3 Nov 2026): ONE email with To and CC, so everyone sees who got it; the meeting in
+	the reminder's layout with its Notes. The "Open the meeting" button is left out when someone outside Elevate is on
+	it (they can't sign in)."""
 	s = frappe.get_doc("Meeting Schedule", name)
 	s.check_permission("write")
-	emails = frappe.parse_json(recipients) if isinstance(recipients, str) and recipients.strip().startswith("[") else \
-		[x.strip() for x in str(recipients or "").replace(";", ",").split(",") if x.strip()]
-	emails = list(dict.fromkeys(e for e in emails if frappe.utils.validate_email_address(e)))
-	if not emails:
-		frappe.throw(_("Add at least one email address."))
+	to, cc = parse_emails(to), parse_emails(cc)
+	cc = [e for e in cc if e not in to]
+	if not to:
+		frappe.throw(_("Add at least one address in To."))
+	everyone = to + cc
+	staff = set(frappe.get_all("User", filters={"email": ["in", everyone], "enabled": 1, "user_type": "System User"}, pluck="email"))
+	with_button = all(e in staff for e in everyone)
 	rows = reminder_lines(s)[1]
 	esc = frappe.utils.escape_html
 	table = "".join('<tr><td style="padding:4px 14px 4px 0;color:#5A5A78">' + esc(k) + '</td><td style="padding:4px 0">' + esc(v) + "</td></tr>" for k, v in rows)
 	notes = frappe.utils.sanitize_html(s.discussion or "")
 	link = get_url_to_form("Meeting Schedule", s.name)
-	staff = {frappe.db.get_value("User", u, "email") for u in frappe.get_all("User", filters={"email": ["in", emails], "enabled": 1, "user_type": "System User"}, pluck="name")}
-
-	def body(with_button):
-		return ('<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#26255E">'
-			+ '<p style="font-size:18px;font-weight:bold;margin:0 0 10px">' + esc(title(s)) + "</p><table>" + table + "</table>"
-			+ ('<p style="font-weight:bold;margin:18px 0 4px">' + _("Notes") + '</p><div>' + notes + "</div>" if notes.strip() else "")
-			+ ('<p style="margin:20px 0"><a href="' + link + '" style="background:#e5306b;color:#ffffff;text-decoration:none;border-radius:6px;padding:11px 22px;font-weight:bold;display:inline-block">' + _("Open the meeting") + "</a></p>" if with_button else "")
-			+ "</div>")
-
+	body = ('<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#26255E">'
+		+ '<p style="font-size:18px;font-weight:bold;margin:0 0 10px">' + esc(title(s)) + "</p><table>" + table + "</table>"
+		+ ('<p style="font-weight:bold;margin:18px 0 4px">' + _("Notes") + "</p><div>" + notes + "</div>" if notes.strip() else "")
+		+ ('<p style="margin:20px 0"><a href="' + link + '" style="background:#e5306b;color:#ffffff;text-decoration:none;border-radius:6px;padding:11px 22px;font-weight:bold;display:inline-block">' + _("Open the meeting") + "</a></p>" if with_button else "")
+		+ "</div>")
 	subject = title(s) + (" - " + format_datetime(s.scheduled_from, "EEEE d MMM, HH:mm") if s.scheduled_from else "")
-	inside = [e for e in emails if e in staff]
-	outside = [e for e in emails if e not in staff]
-	for group, button in ((inside, True), (outside, False)):
-		if group:
-			frappe.sendmail(recipients=group, subject=subject, message=body(button), reference_doctype="Meeting Schedule", reference_name=s.name)
-	s.add_comment("Info", _("Meeting mail sent to {0}").format(", ".join(emails)))
-	return emails
+	frappe.sendmail(recipients=to, cc=cc, subject=subject, message=body, reference_doctype="Meeting Schedule", reference_name=s.name)
+	s.add_comment("Info", _("Meeting mail sent. To: {0}. CC: {1}").format(", ".join(to), ", ".join(cc) or "-"))
+	return {"to": to, "cc": cc}
 
 
 @frappe.whitelist()

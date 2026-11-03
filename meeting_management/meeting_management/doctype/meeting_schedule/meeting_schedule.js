@@ -31,8 +31,12 @@ function elevatemeet_party_labels(frm) {
 	const $sel = frm.fields_dict.party_type && frm.fields_dict.party_type.$input;
 	if ($sel) $sel.find('option[value="Lead"]').text(__("Company Leads"));
 	frm.set_df_property("organisation", "label", frm.doc.party_type === "Job Applicant" ? __("Applicant Name") : __("Company Name"));
-	// Contacts is the External Meeting section; for an Internal Meeting it is "Meeting Info" (the agenda) (user, 3 Nov 2026)
-	frm.set_df_property("contacts_section", "label", frm.doc.meeting_type === "Internal Meeting" ? __("Meeting Info") : __("Contacts"));
+	// Contacts is only for an External Meeting; an Internal Meeting has its agenda in the Meeting section (user, 3 Nov 2026)
+	const agenda = frm.fields_dict.meeting_agenda && $(frm.fields_dict.meeting_agenda.wrapper);
+	if (agenda && agenda.length) {
+		const home = frm.doc.meeting_type === "Internal Meeting" ? frm.fields_dict.is_online : frm.fields_dict.email_id;
+		if (home && !agenda.prev().is(home.wrapper)) agenda.insertAfter($(home.wrapper));
+	}
 }
 
 function elevatemeet_add_members(frm, table, to_row) {
@@ -103,6 +107,28 @@ frappe.ui.form.on('Meeting Schedule', Object.assign({}, elevatemeet_department_e
 					frm.set_value("status", "Cancelled");
 					frm.save();
 				});
+			});
+		}
+		// ElevateMeet (3 Nov 2026, user): Send Mail sends the meeting and its Notes, in the reminder's layout
+		if (!frm.is_new() && frm.doc.status !== "Cancelled") {
+			frm.add_custom_button(__("Send Mail"), () => {
+				const open = () => frappe.xcall("meeting_management.elevatemeet.mail_recipients", { name: frm.doc.name }).then((to) => {
+					const d = new frappe.ui.Dialog({
+						title: __("Send Mail"),
+						fields: [{ fieldname: "recipients", fieldtype: "Small Text", label: __("To"), reqd: 1, default: (to || []).join(", "),
+							description: __("Separate addresses with commas. Elevate people get an Open the meeting button.") }],
+						primary_action_label: __("Send"),
+						primary_action(v) {
+							frappe.xcall("meeting_management.elevatemeet.send_meeting_mail", { name: frm.doc.name, recipients: v.recipients }).then((sent) => {
+								d.hide();
+								frappe.show_alert({ message: __("Sent to {0}", [(sent || []).join(", ")]), indicator: "green" });
+								frm.reload_doc();
+							});
+						},
+					});
+					d.show();
+				});
+				if (frm.is_dirty()) frm.save().then(open); else open();
 			});
 		}
 		// ElevateMeet (3 Nov 2026, option A): one form; the notes are on the Notes tab and Mark as Held closes the meeting

@@ -50,9 +50,9 @@ class Meeting(Document):
 		user_name = frappe.db.get_value("Employee",{"user_id":frappe.session.user},"employee_name")
 		url = get_url_to_form("Meeting", self.name)
 		if user_name:
-			discussed = "<strong><a href="+url+">"+self.name+"</a>: </strong>"+ user_name + " Met "+ str(self.contact_person) + " On "+ str(self.meeting_from) +"<br>" + self.discussion.replace('\n', "<br>")
+			discussed = "<strong><a href="+url+">"+self.name+"</a>: </strong>"+ user_name + " Met "+ str(self.contact_person) + " On "+ str(self.meeting_from or "") +"<br>" + (self.discussion or "").replace('\n', "<br>")
 		else:
-			discussed = "<strong><a href="+url+">"+self.name+"</a>: </strong>"+ frappe.session.user + " Met "+ str(self.contact_person)+ " On "+ str(self.meeting_from) +"<br>" + self.discussion.replace('\n', "<br>")
+			discussed = "<strong><a href="+url+">"+self.name+"</a>: </strong>"+ frappe.session.user + " Met "+ str(self.contact_person)+ " On "+ str(self.meeting_from or "") +"<br>" + (self.discussion or "").replace('\n', "<br>")
 
 		cm = frappe.new_doc("Comment")
 		cm.subject = self.name

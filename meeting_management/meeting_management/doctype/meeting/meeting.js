@@ -21,6 +21,7 @@ var elevatemeet_department_events = {
 };
 
 function elevatemeet_add_members(frm, table, to_row) {
+	frm.remove_custom_button(__("Add Department Members"));
 	if (frm.doc.meeting_type !== "Internal" || frm.doc.docstatus > 0) return;
 	frm.add_custom_button(__("Add Department Members"), () => {
 		const depts = elevatemeet_departments(frm);
@@ -57,14 +58,15 @@ frappe.ui.form.on('Meeting', Object.assign({}, elevatemeet_department_events, {
 		}
 	},
 	refresh: function(frm) {
-		// ElevateMeet (3 Nov 2026, user): a new meeting asks only for the type, organiser and time; the rest after saving
+		// ElevateMeet (3 Nov 2026, user): a new meeting opens with only an empty Meeting Type; choosing it shows the rest
 		if (frm.is_new()) {
-			const keep = ['meeting_type', 'meeting_arranged_by', 'meeting_from', 'meeting_to'];
+			const waiting = !frm.doc.meeting_type;
 			const breaks = ['Section Break', 'Column Break', 'Tab Break'];
 			frm.meta.fields.forEach((df) => {
-				if (!breaks.includes(df.fieldtype) && !keep.includes(df.fieldname)) frm.toggle_display(df.fieldname, false);
+				if (breaks.includes(df.fieldtype) || df.fieldname === 'meeting_type') return;
+				frm.toggle_display(df.fieldname, waiting ? false : !df.hidden);
 			});
-			frm.set_intro(__('Pick the meeting type, organiser and time, then save to fill in the rest.'), 'blue');
+			frm.set_intro(waiting ? __('Choose the meeting type to start.') : '');
 		}
 		// ElevateMeet: an external meeting is with a lead (company) or a job applicant, shown with ID and name
 		frm.set_query('party', () => ({ query: 'meeting_management.elevatemeet.party_query' }));

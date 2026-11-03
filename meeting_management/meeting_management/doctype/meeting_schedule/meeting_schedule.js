@@ -29,6 +29,7 @@ var elevatemeet_department_events = {
 };
 
 function elevatemeet_add_members(frm, table, to_row) {
+	frm.remove_custom_button(__("Add Department Members"));
 	if (frm.doc.meeting_type !== "Internal" || frm.doc.docstatus > 0) return;
 	frm.add_custom_button(__("Add Department Members"), () => {
 		const depts = elevatemeet_departments(frm);

@@ -65,8 +65,7 @@
    "fieldname": "meeting_type",
    "fieldtype": "Select",
    "label": "Meeting Type",
-   "options": "External\nInternal",
-   "default": "External",
+   "options": "\nExternal\nInternal",
    "reqd": 1,
    "in_list_view": 1,
    "in_standard_filter": 1
@@ -108,24 +107,21 @@
    "fieldtype": "Select",
    "label": "Party Type",
    "options": "\nSame Department\nDifferent Departments",
-   "depends_on": "eval:doc.meeting_type=='Internal'",
-   "mandatory_depends_on": "eval:doc.meeting_type=='Internal'"
+   "depends_on": "eval:doc.meeting_type=='Internal'"
   },
   {
    "fieldname": "department",
    "fieldtype": "Link",
    "label": "Department",
    "options": "Department",
-   "depends_on": "eval:doc.meeting_type=='Internal' && doc.department_scope=='Same Department'",
-   "mandatory_depends_on": "eval:doc.meeting_type=='Internal' && doc.department_scope=='Same Department'"
+   "depends_on": "eval:doc.meeting_type=='Internal' && doc.department_scope=='Same Department'"
   },
   {
    "fieldname": "departments",
    "fieldtype": "Table MultiSelect",
    "label": "Departments",
    "options": "Meeting Department",
-   "depends_on": "eval:doc.meeting_type=='Internal' && doc.department_scope=='Different Departments'",
-   "mandatory_depends_on": "eval:doc.meeting_type=='Internal' && doc.department_scope=='Different Departments'"
+   "depends_on": "eval:doc.meeting_type=='Internal' && doc.department_scope=='Different Departments'"
   },
   {
    "fieldname": "scheduled_time",
@@ -145,8 +141,7 @@
    "fieldtype": "Datetime",
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "label": "Meeting From",
-   "reqd": 1
+   "label": "Meeting From"
   },
   {
    "fieldname": "meeting_to",
@@ -210,7 +205,6 @@
    "fieldname": "email_id",
    "fieldtype": "Data",
    "label": "Email Id",
-   "reqd": 0,
    "depends_on": "eval:doc.meeting_type!='Internal'"
   },
   {
@@ -252,8 +246,6 @@
    "fieldtype": "Link",
    "label": "Industry",
    "options": "Industry Type",
-   "reqd": 0,
-   "mandatory_depends_on": "eval:!doc.__islocal && doc.party_type=='Lead'",
    "depends_on": "eval:doc.party_type=='Lead'"
   },
   {
@@ -292,9 +284,7 @@
    "allow_on_submit": 1,
    "fieldname": "discussion",
    "fieldtype": "Text Editor",
-   "label": "Discussion",
-   "reqd": 0,
-   "mandatory_depends_on": "eval:!doc.__islocal"
+   "label": "Discussion"
   },
   {
    "fieldname": "actionable",
@@ -343,7 +333,7 @@
  "icon": "fa fa-handshake-o",
  "is_submittable": 1,
  "links": [],
- "modified": "2026-11-03 20:00:00.000000",
+ "modified": "2026-11-03 22:00:00.000000",
  "modified_by": "Administrator",
  "module": "Meeting Management",
  "name": "Meeting",

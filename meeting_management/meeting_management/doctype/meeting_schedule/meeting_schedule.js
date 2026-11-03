@@ -1,15 +1,7 @@
 // Copyright (c) 2023, FinByz Tech Pvt. Ltd. and contributors
 // For license information, please see license.txt
-this.frm.add_fetch('contact', 'email_id', 'email_id');
-
-cur_frm.set_query("contact", function() {
-	return {
-		query: "frappe.contacts.doctype.contact.contact.contact_query",
-		filters: { link_doctype: cur_frm.doc.party_type, link_name: cur_frm.doc.party } 
-	};
-});
-
-
+// ElevateMeet (3 Nov 2026): the old top-level `this.frm.add_fetch` / `cur_frm.set_query` broke the whole form on
+// Frappe v16 (this.frm is undefined there), so the contact fetch and filter now run in setup.
 // ElevateMeet (3 Nov 2026, option A): an internal meeting's people come from the same department or chosen departments
 var elevatemeet_departments = (frm) =>
 	frm.doc.meeting_type !== "Internal" ? [] :
@@ -52,6 +44,16 @@ function elevatemeet_add_members(frm, table, to_row) {
 }
 
 frappe.ui.form.on('Meeting Schedule', Object.assign({}, elevatemeet_department_events, {
+	setup: function(frm) {
+		frm.add_fetch('contact', 'email_id', 'email_id');
+		frm.set_query("contact", function() {
+			return {
+				query: "frappe.contacts.doctype.contact.contact.contact_query",
+				filters: { link_doctype: frm.doc.party_type, link_name: frm.doc.party }
+			};
+		});
+	},
+
 	refresh: function(frm) {
 		frm.set_query("user", "attendees", () => ({ query: "meeting_management.elevatemeet.staff_query", filters: { departments: elevatemeet_departments(frm) } }));
 		elevatemeet_add_members(frm, "attendees", (p) => ({ user: p.user, full_name: p.employee_name }));

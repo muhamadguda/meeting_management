@@ -101,6 +101,7 @@ frappe.ui.form.on('Meeting Schedule', Object.assign({}, elevatemeet_department_e
 				__("Elevate attendees get a calendar invite when you save, and a Raven reminder an hour before."),
 				frm.doc.status === "Cancelled" ? "red" : frm.doc.status === "Held" ? "green" : "blue");
 		}
+		frm.remove_custom_button(__("Cancel Meeting"));
 		if (!frm.is_new() && frm.doc.status === "Scheduled") {
 			frm.add_custom_button(__("Cancel Meeting"), () => {
 				frappe.confirm(__("Cancel this meeting? Elevate attendees get a cancellation."), () => {
@@ -109,32 +110,51 @@ frappe.ui.form.on('Meeting Schedule', Object.assign({}, elevatemeet_department_e
 				});
 			});
 		}
-		// ElevateMeet (3 Nov 2026, user): Send Mail sends the meeting and its Notes, in the reminder's layout
+		// ElevateMeet (3 Nov 2026, user): Send Mail sends the meeting and its Notes, in the reminder's layout. To and CC are
+		// pill boxes that suggest employees by name (Frappe's own email picker); one window at a time.
+		frm.remove_custom_button(__("Send Mail"));
 		if (!frm.is_new() && frm.doc.status !== "Cancelled") {
 			frm.add_custom_button(__("Send Mail"), () => {
+				if (frm._elevatemeet_mail_open) return;
+				frm._elevatemeet_mail_open = true;
 				const open = () => frappe.xcall("meeting_management.elevatemeet.mail_recipients", { name: frm.doc.name }).then((r) => {
 					const d = new frappe.ui.Dialog({
 						title: __("Send Mail"),
 						fields: [
-							{ fieldname: "to", fieldtype: "Small Text", label: __("To"), reqd: 1, default: ((r && r.to) || []).join(", ") },
-							{ fieldname: "cc", fieldtype: "Small Text", label: __("CC"), default: ((r && r.cc) || []).join(", "),
-								description: __("One email to everyone; separate addresses with commas.") },
+							{ fieldname: "to", fieldtype: "MultiSelect Pills", label: __("To"), reqd: 1, ignore_validation: true },
+							{ fieldname: "cc", fieldtype: "MultiSelect Pills", label: __("CC"), ignore_validation: true,
+								description: __("One email to everyone. Type a name to find an employee.") },
 						],
 						primary_action_label: __("Send"),
 						primary_action(v) {
-							frappe.xcall("meeting_management.elevatemeet.send_meeting_mail", { name: frm.doc.name, to: v.to, cc: v.cc }).then((sent) => {
+							const list = (x) => (Array.isArray(x) ? x : String(x || "").split(",")).map((e) => e.trim()).filter(Boolean);
+							frappe.xcall("meeting_management.elevatemeet.send_meeting_mail", { name: frm.doc.name, to: list(v.to), cc: list(v.cc) }).then((sent) => {
 								d.hide();
 								frappe.show_alert({ message: __("Sent to {0}", [[...(sent.to || []), ...(sent.cc || [])].join(", ")]), indicator: "green" });
 								frm.reload_doc();
 							});
 						},
 					});
+					["to", "cc"].forEach((name) => {
+						const control = d.fields_dict[name];
+						control.get_data = () => {
+							const txt = (control.$input?.val() || "").trim();
+							frappe.call({ method: "frappe.email.get_contact_list", args: { txt } }).then((res) => {
+								const added = new Set(["to", "cc"].flatMap((n) => (d.fields_dict[n].rows || []).map((x) => x.toLowerCase())));
+								control.set_data((res.message || []).filter((x) => !added.has((x.value || "").toLowerCase())));
+							});
+						};
+					});
+					d.onhide = () => { frm._elevatemeet_mail_open = false; };
 					d.show();
-				});
-				if (frm.is_dirty()) frm.save().then(open); else open();
+					d.set_value("to", (r && r.to) || []);
+					d.set_value("cc", (r && r.cc) || []);
+				}, () => { frm._elevatemeet_mail_open = false; });
+				if (frm.is_dirty()) frm.save().then(open, () => { frm._elevatemeet_mail_open = false; }); else open();
 			});
 		}
 		// ElevateMeet (3 Nov 2026, option A): one form; the notes are on the Notes tab and Mark as Held closes the meeting
+		frm.remove_custom_button(__("Mark as Held"));
 		if (!frm.is_new() && frm.doc.status === "Scheduled") {
 			frm.add_custom_button(__("Mark as Held"), () => {
 				const go = () => frappe.xcall("meeting_management.elevatemeet.mark_held", { name: frm.doc.name })

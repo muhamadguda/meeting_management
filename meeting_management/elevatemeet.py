@@ -480,16 +480,28 @@ def send_meeting_mail(name, to, cc=None):
 	staff = set(frappe.get_all("User", filters={"email": ["in", everyone], "enabled": 1, "user_type": "System User"}, pluck="email"))
 	with_button = all(e in staff for e in everyone)
 	rows = reminder_lines(s)[1]
+	heading = title(s)
+	if s.get("meeting_type") == "Internal Meeting":
+		# user, 3 Nov 2026: With = the CC'd employees; the title = the sender's department - the CC'd departments
+		me = frappe.db.get_value("User", frappe.session.user, "email")
+		others = [e for e in (cc or to) if e != me] or [e for e in to if e != me]
+		people = frappe.get_all("User", filters={"email": ["in", others or [""]]}, fields=["name", "full_name", "email"])
+		names = [p.full_name or p.email for p in people]
+		mine = (frappe.db.get_value("Employee", {"user_id": frappe.session.user, "status": "Active"}, "department")
+			or frappe.db.get_value("Employee", {"user_id": s.meeting_arranged_by, "status": "Active"}, "department"))
+		theirs = list(dict.fromkeys(d for d in (frappe.db.get_value("Employee", {"user_id": p.name, "status": "Active"}, "department") for p in people) if d))
+		heading = _("Internal meeting: {0}").format(" - ".join(x for x in [mine or _("Elevate"), ", ".join(theirs)] if x))
+		rows = [(k, ", ".join(names) if k == _("With") and names else v) for k, v in rows]
 	esc = frappe.utils.escape_html
 	table = "".join('<tr><td style="padding:4px 14px 4px 0;color:#5A5A78">' + esc(k) + '</td><td style="padding:4px 0">' + esc(v) + "</td></tr>" for k, v in rows)
 	notes = frappe.utils.sanitize_html(s.discussion or "")
 	link = get_url_to_form("Meeting Schedule", s.name)
 	body = ('<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#26255E">'
-		+ '<p style="font-size:18px;font-weight:bold;margin:0 0 10px">' + esc(title(s)) + "</p><table>" + table + "</table>"
+		+ '<p style="font-size:18px;font-weight:bold;margin:0 0 10px">' + esc(heading) + "</p><table>" + table + "</table>"
 		+ ('<p style="font-weight:bold;margin:18px 0 4px">' + _("Notes") + "</p><div>" + notes + "</div>" if notes.strip() else "")
 		+ ('<p style="margin:20px 0"><a href="' + link + '" style="background:#e5306b;color:#ffffff;text-decoration:none;border-radius:6px;padding:11px 22px;font-weight:bold;display:inline-block">' + _("Open the meeting") + "</a></p>" if with_button else "")
 		+ "</div>")
-	subject = title(s) + (" - " + format_datetime(s.scheduled_from, "EEEE d MMM, HH:mm") if s.scheduled_from else "")
+	subject = heading + (" - " + format_datetime(s.scheduled_from, "EEEE d MMM, HH:mm") if s.scheduled_from else "")
 	frappe.sendmail(recipients=to, cc=cc, subject=subject, message=body, reference_doctype="Meeting Schedule", reference_name=s.name)
 	s.add_comment("Info", _("Meeting mail sent. To: {0}. CC: {1}").format(", ".join(to), ", ".join(cc) or "-"))
 	return {"to": to, "cc": cc}

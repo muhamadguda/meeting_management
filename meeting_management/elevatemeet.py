@@ -278,16 +278,19 @@ def check_departments(doc, users=None, employees=None):
 	depts = chosen_departments(doc)
 	if not depts:
 		return
+	# user, 4 Nov 2026: the organiser's own department may always be invited too
+	own = organiser and frappe.db.get_value("Employee", {"user_id": organiser, "status": "Active"}, "department")
+	allowed = depts + ([own] if own and own not in depts else [])
 	outside = []
 	for u in users or []:
-		if u != organiser and frappe.db.get_value("Employee", {"user_id": u, "status": "Active"}, "department") not in depts:
+		if u != organiser and frappe.db.get_value("Employee", {"user_id": u, "status": "Active"}, "department") not in allowed:
 			outside.append(frappe.db.get_value("User", u, "full_name") or u)
 	for e in employees or []:
 		row = frappe.db.get_value("Employee", e, ["department", "user_id", "employee_name"], as_dict=True) or {}
-		if row.get("user_id") != organiser and row.get("department") not in depts:
+		if row.get("user_id") != organiser and row.get("department") not in allowed:
 			outside.append(row.get("employee_name") or e)
 	if outside:
-		frappe.throw(_("These people aren't in {0}: {1}").format(", ".join(depts), ", ".join(outside)), title=_("Wrong department"))
+		frappe.throw(_("These people aren't in {0}: {1}").format(", ".join(allowed), ", ".join(outside)), title=_("Wrong department"))
 
 
 @frappe.whitelist()
@@ -308,8 +311,12 @@ def department_people(departments):
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
 def staff_query(doctype, txt, searchfield, start, page_len, filters):
-	"""The attendee picker: active staff of the chosen department(s), or everyone when none is chosen."""
-	depts = (filters or {}).get("departments") or []
+	"""The attendee picker: active staff of the chosen department(s) plus the organiser's own department (user,
+	4 Nov 2026), or everyone when none is chosen."""
+	depts = list((filters or {}).get("departments") or [])
+	own = depts and organiser_department((filters or {}).get("organiser"))
+	if own and own not in depts:
+		depts.append(own)
 	cond = "and e.department in %(depts)s" if depts else ""
 	return frappe.db.sql("""select u.name, u.full_name, e.department from `tabUser` u
 		left join `tabEmployee` e on e.user_id = u.name and e.status = 'Active'
@@ -594,16 +601,26 @@ def send_meeting_mail(name, to, cc=None):
 	rows = reminder_lines(s)[1]
 	heading = title(s)
 	if s.get("meeting_type") == "Internal Meeting":
-		# user, 3 Nov 2026: With = the CC'd employees; the title = the sender's department - the CC'd departments
+		# user, 4 Nov 2026: the title = the sender's department - the meeting's chosen departments (the people's
+		# departments only when none was chosen); the table shows To and CC by name instead of "With"
 		me = frappe.db.get_value("User", frappe.session.user, "email")
-		others = [e for e in (cc or to) if e != me] or [e for e in to if e != me]
-		people = frappe.get_all("User", filters={"email": ["in", others or [""]]}, fields=["name", "full_name", "email"])
-		names = [person_name(p.name) for p in people]
+
+		def names_of(emails):
+			out = []
+			for e in emails:
+				u = frappe.db.get_value("User", {"email": e}, "name")
+				out.append(person_name(u) if u else e)
+			return out
+
 		mine = (frappe.db.get_value("Employee", {"user_id": frappe.session.user, "status": "Active"}, "department")
 			or frappe.db.get_value("Employee", {"user_id": s.meeting_arranged_by, "status": "Active"}, "department"))
-		theirs = list(dict.fromkeys(d for d in (frappe.db.get_value("Employee", {"user_id": p.name, "status": "Active"}, "department") for p in people) if d))
+		theirs = [d for d in chosen_departments(s) if d != mine]
+		if not theirs:
+			users = frappe.get_all("User", filters={"email": ["in", [e for e in to + cc if e != me] or [""]]}, pluck="name")
+			theirs = list(dict.fromkeys(d for d in (frappe.db.get_value("Employee", {"user_id": u, "status": "Active"}, "department") for u in users) if d and d != mine))
 		heading = _("Internal meeting: {0}").format(" - ".join(x for x in [mine or _("Elevate"), ", ".join(theirs)] if x))
-		rows = [(k, ", ".join(names) if k == _("With") and names else v) for k, v in rows]
+		people_rows = [(_("To"), ", ".join(names_of(to))), (_("CC"), ", ".join(names_of([e for e in cc if e != me])))]
+		rows = [r for k, v in rows for r in ([(k, v)] if k != _("With") else people_rows) if r[1]]
 	esc = frappe.utils.escape_html
 	table = "".join('<tr><td style="padding:4px 14px 4px 0;color:#5A5A78">' + esc(k) + '</td><td style="padding:4px 0">' + esc(v) + "</td></tr>" for k, v in rows)
 	notes = frappe.utils.sanitize_html(s.discussion or "")

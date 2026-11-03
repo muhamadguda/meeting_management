@@ -30,6 +30,7 @@
   "attendees",
   "description",
   "cc_to",
+  "cc_people",
   "invitation_message",
   "send_invitation",
   "amended_from",
@@ -130,7 +131,6 @@
    "fetch_from": "lead.company_name",
    "fieldname": "organisation",
    "fieldtype": "Data",
-   "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Name",
    "depends_on": "eval:doc.meeting_type!='Internal'"
@@ -152,7 +152,9 @@
    "in_standard_filter": 1,
    "label": "Organiser",
    "options": "User",
-   "default": "__user"
+   "default": "__user",
+   "read_only": 1,
+   "description": "The person who scheduled the meeting."
   },
   {
    "fieldname": "contact",
@@ -207,7 +209,16 @@
   {
    "fieldname": "cc_to",
    "fieldtype": "Data",
-   "label": "CC To"
+   "label": "CC To",
+   "hidden": 1
+  },
+  {
+   "fieldname": "cc_people",
+   "fieldtype": "Table MultiSelect",
+   "label": "CC To",
+   "options": "Meeting CC",
+   "depends_on": "eval:doc.meeting_type!='Internal'",
+   "description": "Elevate people copied on the invitation sent to the client."
   },
   {
    "fieldname": "invitation_message",
@@ -325,7 +336,7 @@
  ],
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2026-11-03 23:30:00.000000",
+ "modified": "2026-11-04 00:30:00.000000",
  "modified_by": "Administrator",
  "module": "Meeting Management",
  "name": "Meeting Schedule",
@@ -397,6 +408,5 @@
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
- "title_field": "organisation",
  "track_changes": 1
 }

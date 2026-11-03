@@ -49,6 +49,7 @@ def schedule_from_deal(doc, method=None):
 	if lead:
 		fill_lead_contact(schedule, lead)
 	schedule.flags.ignore_mandatory = True
+	schedule.flags.from_deal = True
 	schedule.insert(ignore_permissions=True)
 
 
@@ -126,8 +127,9 @@ def mark_held(name):
 def schedule_validate(doc, method=None):
 	doc.meeting_type = doc.meeting_type or "External"
 	doc.status = doc.status or "Scheduled"
-	if not doc.meeting_arranged_by:
-		doc.meeting_arranged_by = frappe.session.user if frappe.session.user != "Administrator" else None
+	if doc.is_new() and not doc.flags.from_deal:
+		# the organiser is always the person scheduling it (read-only on the form); a BD meeting keeps the deal's BDE
+		doc.meeting_arranged_by = frappe.session.user
 	if doc.meeting_type == "Internal":
 		doc.party_type = doc.party = None
 		if not doc.organisation:
@@ -360,7 +362,9 @@ def send_to_client(name):
 		frappe.throw(_("An internal meeting has no client."))
 	if not doc.email_id:
 		frappe.throw(_("Add the client's email first."))
-	recipients = [doc.email_id] + [x.strip() for x in (doc.cc_to or "").split(",") if x.strip()]
+	cc = [frappe.db.get_value("User", r.user, "email") for r in doc.get("cc_people") or [] if r.user]
+	recipients = [doc.email_id] + [e for e in cc if e] + [x.strip() for x in (doc.cc_to or "").split(",") if x.strip()]
+	recipients = list(dict.fromkeys(recipients))
 	send_ics(doc, recipients, doc.invite_sequence or 0, message=doc.invitation_message)
 	doc.add_comment("Info", _("Invitation sent to {0}").format(", ".join(recipients)))
 	return recipients

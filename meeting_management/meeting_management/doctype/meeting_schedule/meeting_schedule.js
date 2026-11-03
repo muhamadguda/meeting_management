@@ -70,6 +70,7 @@ frappe.ui.form.on('Meeting Schedule', Object.assign({}, elevatemeet_department_e
 			frm.set_intro('');
 		}
 		frm.set_query("user", "attendees", () => ({ query: "meeting_management.elevatemeet.staff_query", filters: { departments: elevatemeet_departments(frm) } }));
+		frm.set_query("cc_people", () => ({ filters: { enabled: 1, user_type: "System User" } }));
 		elevatemeet_add_members(frm, "attendees", (p) => ({ user: p.user, full_name: p.employee_name }));
 		frm.set_query('party', () => ({ query: 'meeting_management.elevatemeet.party_query' }));
 		if (frm.doc.status && !frm.is_new()) {

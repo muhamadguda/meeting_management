@@ -115,7 +115,7 @@ def mark_held(name):
 			o.save(ignore_permissions=True)
 			o.add_comment("Comment", _("Discovery meeting held ({0}).").format(s.name))
 	if s.party_type and s.party and frappe.db.exists(s.party_type, s.party):
-		who = frappe.utils.get_fullname(frappe.session.user)
+		who = person_name(frappe.session.user)
 		text = "<b>" + _("Meeting held") + "</b> (<a href='" + get_url_to_form("Meeting Schedule", s.name) + "'>" + s.name + "</a>) " + _("by {0}").format(who)
 		if s.discussion:
 			text += "<br>" + s.discussion
@@ -390,6 +390,13 @@ def send_reminders():
 	frappe.db.commit()
 
 
+def person_name(user):
+	"""The person's full name with the middle name (User full name, e.g. Mohamed Emad Amer); frappe's get_fullname drops
+	the middle name. The Employee name is the fallback."""
+	return (frappe.db.get_value("User", user, "full_name")
+		or frappe.db.get_value("Employee", {"user_id": user, "status": "Active"}, "employee_name") or user)
+
+
 def reminder_lines(s):
 	"""The meeting's details, the same in Raven and in the email."""
 	start = get_datetime(s.scheduled_from)
@@ -401,7 +408,7 @@ def reminder_lines(s):
 		with_whom = _("Internal Meeting") + (" (" + ", ".join(depts) + ")" if depts else "")
 	else:
 		with_whom = (s.organisation or s.party or "") + (" - " + _(s.party_type) if s.party_type else "")
-	rows = [(_("When"), when), (_("With"), with_whom), (_("Organiser"), frappe.utils.get_fullname(s.meeting_arranged_by) if s.meeting_arranged_by else "")]
+	rows = [(_("When"), when), (_("With"), with_whom), (_("Organiser"), person_name(s.meeting_arranged_by) if s.meeting_arranged_by else "")]
 	if s.is_online:
 		rows.append((_("Where"), _("Online")))
 	if s.get("meeting_agenda"):
@@ -450,11 +457,9 @@ def mail_recipients(name):
 	if s.get("meeting_type") == "External Meeting":
 		staff += [frappe.db.get_value("User", r.user, "email") for r in s.get("cc_people") or [] if r.user]
 	organiser = frappe.db.get_value("User", s.meeting_arranged_by, "email") if s.meeting_arranged_by and is_staff(s.meeting_arranged_by) else None
-	to = [s.email_id] if s.get("meeting_type") == "External Meeting" and s.email_id else ([organiser] if organiser else [])
-	cc = [e for e in dict.fromkeys(e for e in staff if e) if e not in to]
-	if not to and cc:
-		to, cc = [cc[0]], cc[1:]
-	return {"to": to, "cc": cc}
+	# user, 3 Nov 2026: To starts empty (the sender fills it); CC has the organiser and the Elevate attendees
+	cc = list(dict.fromkeys(e for e in ([organiser] + staff) if e))
+	return {"to": [], "cc": cc}
 
 
 def parse_emails(value):
@@ -486,7 +491,7 @@ def send_meeting_mail(name, to, cc=None):
 		me = frappe.db.get_value("User", frappe.session.user, "email")
 		others = [e for e in (cc or to) if e != me] or [e for e in to if e != me]
 		people = frappe.get_all("User", filters={"email": ["in", others or [""]]}, fields=["name", "full_name", "email"])
-		names = [p.full_name or p.email for p in people]
+		names = [person_name(p.name) for p in people]
 		mine = (frappe.db.get_value("Employee", {"user_id": frappe.session.user, "status": "Active"}, "department")
 			or frappe.db.get_value("Employee", {"user_id": s.meeting_arranged_by, "status": "Active"}, "department"))
 		theirs = list(dict.fromkeys(d for d in (frappe.db.get_value("Employee", {"user_id": p.name, "status": "Active"}, "department") for p in people) if d))
@@ -502,7 +507,9 @@ def send_meeting_mail(name, to, cc=None):
 		+ ('<p style="margin:20px 0"><a href="' + link + '" style="background:#e5306b;color:#ffffff;text-decoration:none;border-radius:6px;padding:11px 22px;font-weight:bold;display:inline-block">' + _("Open the meeting") + "</a></p>" if with_button else "")
 		+ "</div>")
 	subject = heading + (" - " + format_datetime(s.scheduled_from, "EEEE d MMM, HH:mm") if s.scheduled_from else "")
-	frappe.sendmail(recipients=to, cc=cc, subject=subject, message=body, reference_doctype="Meeting Schedule", reference_name=s.name)
+	# expose_recipients="header": everyone sees the real To and CC (Frappe otherwise puts each person alone in To)
+	frappe.sendmail(recipients=to, cc=cc, subject=subject, message=body, reference_doctype="Meeting Schedule", reference_name=s.name,
+		expose_recipients="header")
 	s.add_comment("Info", _("Meeting mail sent. To: {0}. CC: {1}").format(", ".join(to), ", ".join(cc) or "-"))
 	return {"to": to, "cc": cc}
 

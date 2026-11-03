@@ -6,25 +6,28 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "meeting_section",
   "naming_series",
   "meeting_type",
-  "status",
+  "meeting_arranged_by",
   "party_type",
-  "party",
   "department_scope",
   "department",
   "departments",
-  "company",
-  "is_online",
   "column_break_7",
-  "meeting_arranged_by",
   "scheduled_from",
   "scheduled_to",
+  "status",
+  "is_online",
+  "company",
   "contact",
+  "contacts_section",
+  "party",
+  "organisation",
   "contact_person_name",
+  "contacts_cb",
   "mobile_no",
   "email_id",
-  "organisation",
   "meeting_agenda",
   "attendees_section",
   "attendees",
@@ -50,6 +53,11 @@
  ],
  "fields": [
   {
+   "fieldname": "meeting_section",
+   "fieldtype": "Section Break",
+   "label": "Meeting"
+  },
+  {
    "fieldname": "naming_series",
    "fieldtype": "Select",
    "label": "Naming Series",
@@ -65,27 +73,20 @@
    "reqd": 1
   },
   {
-   "fieldname": "status",
-   "fieldtype": "Select",
-   "label": "Status",
-   "options": "Scheduled\nHeld\nCancelled",
-   "default": "Scheduled",
-   "in_list_view": 1,
+   "fieldname": "meeting_arranged_by",
+   "fieldtype": "Link",
+   "ignore_user_permissions": 1,
    "in_standard_filter": 1,
-   "allow_on_submit": 1
+   "label": "Organiser",
+   "options": "User",
+   "default": "__user",
+   "read_only": 1
   },
   {
    "fieldname": "party_type",
    "fieldtype": "Select",
    "label": "Party Type",
    "options": "\nLead\nJob Applicant",
-   "depends_on": "eval:doc.meeting_type!='Internal Meeting'"
-  },
-  {
-   "fieldname": "party",
-   "fieldtype": "Dynamic Link",
-   "label": "Party",
-   "options": "party_type",
    "depends_on": "eval:doc.meeting_type!='Internal Meeting'"
   },
   {
@@ -110,31 +111,8 @@
    "depends_on": "eval:doc.meeting_type=='Internal Meeting' && doc.department_scope=='Different Departments'"
   },
   {
-   "fieldname": "company",
-   "fieldtype": "Link",
-   "label": "Company",
-   "options": "Company",
-   "hidden": 1
-  },
-  {
-   "default": "0",
-   "fieldname": "is_online",
-   "fieldtype": "Check",
-   "label": "Is Online"
-  },
-  {
    "fieldname": "column_break_7",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "meeting_arranged_by",
-   "fieldtype": "Link",
-   "ignore_user_permissions": 1,
-   "in_standard_filter": 1,
-   "label": "Organiser",
-   "options": "User",
-   "default": "__user",
-   "read_only": 1
   },
   {
    "fieldname": "scheduled_from",
@@ -149,11 +127,56 @@
    "label": "Scheduled To"
   },
   {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Scheduled\nHeld\nCancelled",
+   "default": "Scheduled",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "allow_on_submit": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "is_online",
+   "fieldtype": "Check",
+   "label": "Is Online"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "hidden": 1
+  },
+  {
    "fieldname": "contact",
    "fieldtype": "Link",
    "label": "Contact",
    "options": "Contact",
+   "depends_on": "eval:doc.meeting_type!='Internal Meeting'",
+   "hidden": 1
+  },
+  {
+   "fieldname": "contacts_section",
+   "fieldtype": "Section Break",
+   "label": "Contacts",
+   "depends_on": "eval:doc.meeting_type"
+  },
+  {
+   "fieldname": "party",
+   "fieldtype": "Dynamic Link",
+   "label": "Party",
+   "options": "party_type",
    "depends_on": "eval:doc.meeting_type!='Internal Meeting'"
+  },
+  {
+   "fetch_from": "lead.company_name",
+   "fieldname": "organisation",
+   "fieldtype": "Data",
+   "in_standard_filter": 1,
+   "label": "Company Name",
+   "depends_on": "eval:doc.meeting_type!='Internal Meeting' && doc.party_type!='Job Applicant'"
   },
   {
    "fetch_from": "contact.first_name",
@@ -161,6 +184,10 @@
    "fieldtype": "Data",
    "label": "Contact Person Name",
    "depends_on": "eval:doc.meeting_type!='Internal Meeting'"
+  },
+  {
+   "fieldname": "contacts_cb",
+   "fieldtype": "Column Break"
   },
   {
    "fetch_from": "contact.mobile_no",
@@ -177,14 +204,6 @@
    "depends_on": "eval:doc.meeting_type!='Internal Meeting'"
   },
   {
-   "fetch_from": "lead.company_name",
-   "fieldname": "organisation",
-   "fieldtype": "Data",
-   "in_standard_filter": 1,
-   "label": "Company Name",
-   "depends_on": "eval:doc.meeting_type!='Internal Meeting'"
-  },
-  {
    "fieldname": "meeting_agenda",
    "fieldtype": "Small Text",
    "label": "Meeting Agenda"
@@ -198,8 +217,7 @@
    "fieldname": "attendees",
    "fieldtype": "Table",
    "label": "Attendees",
-   "options": "Meeting Schedule Attendee",
-   "description": "Elevate people invited. They get the calendar invite and a Raven reminder an hour before."
+   "options": "Meeting Schedule Attendee"
   },
   {
    "fieldname": "description",
@@ -217,8 +235,7 @@
    "fieldtype": "Table MultiSelect",
    "label": "CC To",
    "options": "Meeting CC",
-   "depends_on": "eval:doc.meeting_type!='Internal Meeting'",
-   "description": "Elevate people copied on the invitation sent to the client."
+   "depends_on": "eval:doc.meeting_type!='Internal Meeting'"
   },
   {
    "fieldname": "invitation_message",
@@ -336,7 +353,7 @@
  ],
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2026-11-04 01:30:00.000000",
+ "modified": "2026-11-04 02:30:00.000000",
  "modified_by": "Administrator",
  "module": "Meeting Management",
  "name": "Meeting Schedule",

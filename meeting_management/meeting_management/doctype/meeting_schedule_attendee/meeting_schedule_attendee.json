@@ -22,7 +22,6 @@
    "fetch_from": "user.full_name",
    "fieldname": "full_name",
    "fieldtype": "Data",
-   "in_list_view": 1,
    "label": "Name",
    "read_only": 1
   }

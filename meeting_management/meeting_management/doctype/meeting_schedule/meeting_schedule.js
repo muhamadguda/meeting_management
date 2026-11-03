@@ -16,6 +16,12 @@ var elevatemeet_department_events = {
 		}
 	},
 	meeting_type(frm) {
+		elevatemeet_party_labels(frm);
+		// switching between Internal and External Meeting starts the attendee list again (user, 3 Nov 2026)
+		if ((frm.doc.attendees || []).length) {
+			frm.clear_table("attendees");
+			frm.refresh_field("attendees");
+		}
 		frm.trigger("refresh");
 	},
 };
@@ -25,6 +31,8 @@ function elevatemeet_party_labels(frm) {
 	const $sel = frm.fields_dict.party_type && frm.fields_dict.party_type.$input;
 	if ($sel) $sel.find('option[value="Lead"]').text(__("Company Leads"));
 	frm.set_df_property("organisation", "label", frm.doc.party_type === "Job Applicant" ? __("Applicant Name") : __("Company Name"));
+	// Contacts is the External Meeting section; for an Internal Meeting it is "Meeting Info" (the agenda) (user, 3 Nov 2026)
+	frm.set_df_property("contacts_section", "label", frm.doc.meeting_type === "Internal Meeting" ? __("Meeting Info") : __("Contacts"));
 }
 
 function elevatemeet_add_members(frm, table, to_row) {

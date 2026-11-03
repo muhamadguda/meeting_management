@@ -7,6 +7,8 @@
  "engine": "InnoDB",
  "field_order": [
   "naming_series",
+  "meeting_type",
+  "status",
   "party_type",
   "party",
   "scheduled_from",
@@ -21,6 +23,8 @@
   "mobile_no",
   "email_id",
   "meeting_agenda",
+  "attendees_section",
+  "attendees",
   "description",
   "cc_to",
   "invitation_message",
@@ -28,7 +32,12 @@
   "amended_from",
   "lead",
   "customer",
-  "opportunity"
+  "opportunity",
+  "bd_event",
+  "reminded",
+  "invite_key",
+  "invite_sequence",
+  "invite_sent_to"
  ],
  "fields": [
   {
@@ -38,16 +47,37 @@
    "options": "SCH-"
   },
   {
+   "fieldname": "meeting_type",
+   "fieldtype": "Select",
+   "label": "Meeting With",
+   "options": "Client\nInternal",
+   "default": "Client",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Scheduled\nHeld\nCancelled",
+   "default": "Scheduled",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "allow_on_submit": 1
+  },
+  {
    "fieldname": "party_type",
    "fieldtype": "Select",
    "label": "Party Type",
-   "options": "\nLead\nCustomer\nSupplier\nSales Partner"
+   "options": "\nLead\nCustomer\nSupplier\nSales Partner",
+   "depends_on": "eval:doc.meeting_type!='Internal'"
   },
   {
    "fieldname": "party",
    "fieldtype": "Dynamic Link",
    "label": "Party",
-   "options": "party_type"
+   "options": "party_type",
+   "depends_on": "eval:doc.meeting_type!='Internal'"
   },
   {
    "fieldname": "scheduled_from",
@@ -76,7 +106,9 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Organisation",
-   "reqd": 1
+   "reqd": 0,
+   "mandatory_depends_on": "eval:doc.meeting_type!='Internal'",
+   "depends_on": "eval:doc.meeting_type!='Internal'"
   },
   {
    "default": "0",
@@ -93,37 +125,54 @@
    "fieldtype": "Link",
    "ignore_user_permissions": 1,
    "in_standard_filter": 1,
-   "label": "Meeting Arranged By",
-   "options": "User"
+   "label": "Organiser",
+   "options": "User",
+   "default": "__user"
   },
   {
    "fieldname": "contact",
    "fieldtype": "Link",
    "label": "Contact",
-   "options": "Contact"
+   "options": "Contact",
+   "depends_on": "eval:doc.meeting_type!='Internal'"
   },
   {
    "fetch_from": "contact.first_name",
    "fieldname": "contact_person_name",
    "fieldtype": "Data",
-   "label": "Contact Person Name"
+   "label": "Contact Person Name",
+   "depends_on": "eval:doc.meeting_type!='Internal'"
   },
   {
    "fetch_from": "contact.mobile_no",
    "fieldname": "mobile_no",
    "fieldtype": "Data",
-   "label": "Mobile No"
+   "label": "Mobile No",
+   "depends_on": "eval:doc.meeting_type!='Internal'"
   },
   {
    "fieldname": "email_id",
    "fieldtype": "Data",
    "label": "Email Id",
-   "options": "Email"
+   "options": "Email",
+   "depends_on": "eval:doc.meeting_type!='Internal'"
   },
   {
    "fieldname": "meeting_agenda",
    "fieldtype": "Small Text",
    "label": "Meeting Agenda"
+  },
+  {
+   "fieldname": "attendees_section",
+   "fieldtype": "Section Break",
+   "label": "Elevate Attendees"
+  },
+  {
+   "fieldname": "attendees",
+   "fieldtype": "Table",
+   "label": "Attendees",
+   "options": "Meeting Schedule Attendee",
+   "description": "Elevate people invited. They get the calendar invite and a Raven reminder an hour before."
   },
   {
    "fieldname": "description",
@@ -143,8 +192,9 @@
   {
    "fieldname": "send_invitation",
    "fieldtype": "Button",
-   "label": "Send Invitation",
-   "options": "send_invitation"
+   "label": "Send to Client",
+   "options": "send_invitation",
+   "depends_on": "eval:doc.meeting_type!='Internal'"
   },
   {
    "fieldname": "amended_from",
@@ -174,12 +224,52 @@
    "fieldtype": "Link",
    "hidden": 1,
    "label": "Opportunity",
-   "options": "Opportunity"
+   "options": "Opportunity",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bd_event",
+   "fieldtype": "Link",
+   "label": "BD Meeting",
+   "options": "Event",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reminded",
+   "fieldtype": "Check",
+   "label": "Reminded",
+   "hidden": 1,
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "invite_key",
+   "fieldtype": "Small Text",
+   "label": "Invite Key",
+   "hidden": 1,
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "invite_sequence",
+   "fieldtype": "Int",
+   "label": "Invite Sequence",
+   "hidden": 1,
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "invite_sent_to",
+   "fieldtype": "Small Text",
+   "label": "Invite Sent To",
+   "hidden": 1,
+   "read_only": 1,
+   "no_copy": 1
   }
  ],
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2023-03-16 07:26:07.858131",
+ "modified": "2026-11-03 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Meeting Management",
  "name": "Meeting Schedule",
@@ -187,28 +277,64 @@
  "owner": "Administrator",
  "permissions": [
   {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
    "create": 1,
    "delete": 1,
    "email": 1,
-   "export": 1,
    "print": 1,
-   "read": 1,
    "report": 1,
-   "role": "System Manager",
    "share": 1,
-   "write": 1
+   "export": 1
   },
   {
+   "role": "Sales Manager",
+   "read": 1,
+   "write": 1,
    "create": 1,
    "delete": 1,
    "email": 1,
-   "export": 1,
    "print": 1,
-   "read": 1,
    "report": 1,
-   "role": "Sales User",
    "share": 1,
-   "write": 1
+   "export": 1
+  },
+  {
+   "role": "Sales User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1,
+   "export": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1,
+   "export": 1
+  },
+  {
+   "role": "HR User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1,
+   "export": 1
   }
  ],
  "search_fields": "organisation,contact_person_name",

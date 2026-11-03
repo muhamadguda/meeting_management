@@ -1,0 +1,77 @@
+{
+ "charts": [],
+ "content": "[{\"id\": \"em-h\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>ElevateMeet</b></span>\", \"col\": 12}}, {\"id\": \"em-0\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"My Meetings\", \"col\": 3}}, {\"id\": \"em-1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Meeting Schedule\", \"col\": 3}}, {\"id\": \"em-2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Meeting Notes\", \"col\": 3}}, {\"id\": \"em-3\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Calendar\", \"col\": 3}}, {\"id\": \"em-4\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Meetings Dashboard\", \"col\": 3}}]",
+ "creation": "2026-11-03 12:00:00.000000",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "calendar",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "ElevateMeet",
+ "links": [],
+ "modified": "2026-11-03 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Meeting Management",
+ "name": "ElevateMeet",
+ "number_cards": [],
+ "owner": "Administrator",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Sales Manager"
+  },
+  {
+   "role": "Sales User"
+  },
+  {
+   "role": "HR Manager"
+  },
+  {
+   "role": "HR User"
+  }
+ ],
+ "sequence_id": 50,
+ "shortcuts": [
+  {
+   "type": "Page",
+   "link_to": "my-meetings",
+   "label": "My Meetings",
+   "color": "Pink"
+  },
+  {
+   "type": "DocType",
+   "link_to": "Meeting Schedule",
+   "label": "Meeting Schedule",
+   "color": "Blue",
+   "doc_view": "List"
+  },
+  {
+   "type": "DocType",
+   "link_to": "Meeting",
+   "label": "Meeting Notes",
+   "color": "Green",
+   "doc_view": "List"
+  },
+  {
+   "type": "URL",
+   "url": "/desk/meeting-schedule/view/calendar",
+   "label": "Calendar",
+   "color": "Orange"
+  },
+  {
+   "type": "Report",
+   "link_to": "ElevateMeet Summary",
+   "label": "Meetings Dashboard",
+   "color": "Purple",
+   "doc_view": ""
+  }
+ ],
+ "title": "ElevateMeet"
+}

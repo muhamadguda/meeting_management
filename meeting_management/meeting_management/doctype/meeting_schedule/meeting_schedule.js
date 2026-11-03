@@ -11,6 +11,21 @@ cur_frm.set_query("contact", function() {
 
 frappe.ui.form.on('Meeting Schedule', {
 	refresh: function(frm) {
+		frm.set_query("user", "attendees", () => ({ filters: { enabled: 1, user_type: "System User" } }));
+		if (frm.doc.status && !frm.is_new()) {
+			frm.set_intro(frm.doc.status === "Cancelled" ? __("This meeting was cancelled.") :
+				frm.doc.status === "Held" ? __("This meeting was held.") :
+				__("Elevate attendees get a calendar invite when you save, and a Raven reminder an hour before."),
+				frm.doc.status === "Cancelled" ? "red" : frm.doc.status === "Held" ? "green" : "blue");
+		}
+		if (!frm.is_new() && frm.doc.status === "Scheduled") {
+			frm.add_custom_button(__("Cancel Meeting"), () => {
+				frappe.confirm(__("Cancel this meeting? Elevate attendees get a cancellation."), () => {
+					frm.set_value("status", "Cancelled");
+					frm.save();
+				});
+			});
+		}
 		frm.add_custom_button(__("Create Meeting"), function() {
 			frappe.model.open_mapped_doc({
 				method : "meeting_management.meeting_management.doctype.meeting_schedule.meeting_schedule.make_meeting",
@@ -113,7 +128,11 @@ frappe.ui.form.on('Meeting Schedule', {
 			frappe.throw("Please Save the Current Document and Then Proceed again")
 		}
 		else{
-			frm.call('send_invitation');
+			// ElevateMeet: the invitation and calendar invite go to the client only from this button
+			frappe.confirm(__('Email the invitation and calendar invite to {0}?', [frm.doc.email_id || __('the client')]), () => {
+				frappe.call({ method: 'meeting_management.elevatemeet.send_to_client', args: { name: frm.doc.name } })
+					.then((r) => { frappe.show_alert({ message: __('Sent to {0}', [(r.message || []).join(', ')]), indicator: 'green' }); frm.reload_doc(); });
+			});
 		}
 	}
 });

@@ -120,6 +120,7 @@ def make_meeting(source_name, target_doc=None):
 				"doctype": "Meeting",
 				"field_map": {
 					"name": "schedule_ref",
+					"meeting_type": "meeting_type",
 					"scheduled_from": "meeting_from",
 					"scheduled_to": "meeting_to",
 					"contact":"contact_person",

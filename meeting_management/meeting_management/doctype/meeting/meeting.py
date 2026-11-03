@@ -45,6 +45,8 @@ class Meeting(Document):
 				frappe.throw(_("Meeting To Date must be after Meeting From Date"))
 
 	def on_submit(self):
+		if not (self.party_type and self.party):   # an internal meeting has no lead or customer (Elevate)
+			return
 		user_name = frappe.db.get_value("Employee",{"user_id":frappe.session.user},"employee_name")
 		url = get_url_to_form("Meeting", self.name)
 		if user_name:

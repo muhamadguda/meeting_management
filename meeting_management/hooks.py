@@ -4,19 +4,19 @@
 from . import __version__ as app_version
 
 app_name = "meeting_management"
-app_title = "Meeting Management"
+app_title = "ElevateMeet"
 app_publisher = "Finbyz Tech PVT LTD"
 app_description = "meeting"
 app_email = "info@finbyz.tech"
 app_license = "MIT"
 
-# apps screen tile (Elevate, 3 Nov 2026): only for the roles that can read Meeting
+# apps screen tile (Elevate, 3 Nov 2026): ElevateMeet, for the roles that can use meetings
 add_to_apps_screen = [
 	{
 		"name": "meeting_management",
 		"logo": "/assets/meeting_management/images/meeting-management-logo.svg",
-		"title": "Meeting Management",
-		"route": "/desk/meeting-management",
+		"title": "ElevateMeet",
+		"route": "/desk/elevatemeet",
 		"has_permission": "meeting_management.api.has_app_permission",
 	}
 ]
@@ -115,6 +115,23 @@ doctype_js = {
 override_doctype_dashboards = {
 	"Lead": "meeting_management.api.lead_get_data"
 }
+
+# ElevateMeet (Elevate, 3 Nov 2026): BD link, staff invites, reminders (meeting_management/elevatemeet.py)
+doc_events = {
+	"Opportunity": {"after_insert": "meeting_management.elevatemeet.schedule_from_deal"},
+	"Event": {"on_update": "meeting_management.elevatemeet.follow_event"},
+	"Meeting Schedule": {
+		"validate": "meeting_management.elevatemeet.schedule_validate",
+		"on_update": "meeting_management.elevatemeet.schedule_on_update",
+	},
+	"Meeting": {"on_submit": "meeting_management.elevatemeet.notes_submitted"},
+}
+
+scheduler_events = {
+	"cron": {"*/15 * * * *": ["meeting_management.elevatemeet.send_reminders"]},
+}
+
+after_migrate = ["meeting_management.elevatemeet.make_bot"]
 # override_doctype_class = {
 #	"ToDo": "custom_app.overrides.CustomToDo"
 # }

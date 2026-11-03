@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\": \"em-h\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>ElevateMeet</b></span>\", \"col\": 12}}, {\"id\": \"em-0\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"My Meetings\", \"col\": 3}}, {\"id\": \"em-1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Meeting Schedule\", \"col\": 3}}, {\"id\": \"em-2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Meeting Notes\", \"col\": 3}}, {\"id\": \"em-3\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Calendar\", \"col\": 3}}, {\"id\": \"em-4\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Meetings Dashboard\", \"col\": 3}}, {\"id\": \"em-sp\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"em-c0\", \"type\": \"card\", \"data\": {\"card_name\": \"Meetings\", \"col\": 4}}, {\"id\": \"em-c1\", \"type\": \"card\", \"data\": {\"card_name\": \"Reports\", \"col\": 4}}, {\"id\": \"em-c2\", \"type\": \"card\", \"data\": {\"card_name\": \"Settings\", \"col\": 4}}]",
+ "content": "[{\"id\": \"em-h\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>ElevateMeet</b></span>\", \"col\": 12}}, {\"id\": \"em-0\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"My Meetings\", \"col\": 3}}, {\"id\": \"em-1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Meetings\", \"col\": 3}}, {\"id\": \"em-3\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Calendar\", \"col\": 3}}, {\"id\": \"em-4\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Meetings Dashboard\", \"col\": 3}}, {\"id\": \"em-sp\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"em-c0\", \"type\": \"card\", \"data\": {\"card_name\": \"Meetings\", \"col\": 4}}, {\"id\": \"em-c1\", \"type\": \"card\", \"data\": {\"card_name\": \"Reports\", \"col\": 4}}, {\"id\": \"em-c2\", \"type\": \"card\", \"data\": {\"card_name\": \"Settings\", \"col\": 4}}]",
  "creation": "2026-11-03 12:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,
@@ -15,7 +15,7 @@
   {
    "type": "Card Break",
    "label": "Meetings",
-   "link_count": 3,
+   "link_count": 2,
    "hidden": 0,
    "is_query_report": 0,
    "onboard": 0
@@ -34,17 +34,7 @@
    "type": "Link",
    "link_type": "DocType",
    "link_to": "Meeting Schedule",
-   "label": "Meeting Schedule",
-   "hidden": 0,
-   "is_query_report": 0,
-   "onboard": 0,
-   "link_count": 0
-  },
-  {
-   "type": "Link",
-   "link_type": "DocType",
-   "link_to": "Meeting",
-   "label": "Meeting Notes",
+   "label": "Meetings",
    "hidden": 0,
    "is_query_report": 0,
    "onboard": 0,
@@ -107,7 +97,7 @@
    "link_count": 0
   }
  ],
- "modified": "2026-11-03 18:00:00.000000",
+ "modified": "2026-11-03 23:30:00.000000",
  "modified_by": "Administrator",
  "module": "Meeting Management",
  "name": "ElevateMeet",
@@ -143,15 +133,8 @@
   {
    "type": "DocType",
    "link_to": "Meeting Schedule",
-   "label": "Meeting Schedule",
+   "label": "Meetings",
    "color": "Blue",
-   "doc_view": "List"
-  },
-  {
-   "type": "DocType",
-   "link_to": "Meeting",
-   "label": "Meeting Notes",
-   "color": "Green",
    "doc_view": "List"
   },
   {

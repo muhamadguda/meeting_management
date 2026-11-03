@@ -55,6 +55,20 @@ frappe.ui.form.on('Meeting Schedule', Object.assign({}, elevatemeet_department_e
 	},
 
 	refresh: function(frm) {
+		// ElevateMeet (3 Nov 2026, user): like Meeting, a new schedule opens with only an empty Meeting Type; choosing it shows the rest
+		if (frm.is_new()) {
+			const waiting = !frm.doc.meeting_type;
+			const breaks = ['Section Break', 'Column Break', 'Tab Break'];
+			frm.meta.fields.forEach((df) => {
+				if (breaks.includes(df.fieldtype) || df.fieldname === 'meeting_type') return;
+				frm.toggle_display(df.fieldname, waiting ? false : !df.hidden);
+			});
+			if (waiting) {
+				frm.set_intro(__('Choose the meeting type to start.'));
+				return;
+			}
+			frm.set_intro('');
+		}
 		frm.set_query("user", "attendees", () => ({ query: "meeting_management.elevatemeet.staff_query", filters: { departments: elevatemeet_departments(frm) } }));
 		elevatemeet_add_members(frm, "attendees", (p) => ({ user: p.user, full_name: p.employee_name }));
 		frm.set_query('party', () => ({ query: 'meeting_management.elevatemeet.party_query' }));
@@ -72,12 +86,14 @@ frappe.ui.form.on('Meeting Schedule', Object.assign({}, elevatemeet_department_e
 				});
 			});
 		}
-		frm.add_custom_button(__("Create Meeting"), function() {
-			frappe.model.open_mapped_doc({
-				method : "meeting_management.meeting_management.doctype.meeting_schedule.meeting_schedule.make_meeting",
-				frm : frm
-			})
-		})
+		// ElevateMeet (3 Nov 2026, option A): one form; the notes are on the Notes tab and Mark as Held closes the meeting
+		if (!frm.is_new() && frm.doc.status === "Scheduled") {
+			frm.add_custom_button(__("Mark as Held"), () => {
+				const go = () => frappe.xcall("meeting_management.elevatemeet.mark_held", { name: frm.doc.name })
+					.then(() => { frappe.show_alert({ message: __("Meeting held"), indicator: "green" }); frm.reload_doc(); });
+				if (frm.is_dirty()) frm.save().then(go); else go();
+			}).addClass("btn-primary");
+		}
 	
 	},
 

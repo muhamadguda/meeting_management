@@ -4,7 +4,7 @@
 frappe.ui.form.on('Lead', {
 	refresh: function(frm) {
 		
-			frm.add_custom_button(__("Meeting Schedule"), function() {
+			frm.add_custom_button(__("Meeting"), function() {
 				return frappe.call({
 					method : "meeting_management.meeting_management.doc_event.lead.make_meetings",
 					args: {
@@ -21,22 +21,7 @@ frappe.ui.form.on('Lead', {
 				})
 			}, __("Create"));
 			
-			frm.add_custom_button(__("Meeting"), function() {
-				return frappe.call({
-					method : "meeting_management.meeting_management.doc_event.lead.make_meetings",
-					args: {
-						"source_name": frm.doc.name,
-						"doctype": 'Lead',
-						"ref_doctype": 'Meeting'
-					},
-					callback: function(r) {
-						if(!r.exc) {
-							var doc = frappe.model.sync(r.message);
-							frappe.set_route("Form", r.message.doctype, r.message.name);
-						}
-					}
-				})
-			}, __("Create"));
+			// ElevateMeet (3 Nov 2026): one meeting form; notes are written on the schedule
 		
 	},
 	// status: function(frm) {

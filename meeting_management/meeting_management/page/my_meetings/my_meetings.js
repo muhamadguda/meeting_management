@@ -38,14 +38,6 @@ frappe.pages["my-meetings"].on_page_load = function (wrapper) {
 				section(__("Notes to write"), d.notes_due, __("All your past meetings have notes."),
 					() => `<span class="btn btn-xs btn-default">${__("Write notes")}</span>`)
 			);
-			body.find(".mm-row .btn").closest(".mm-row").on("click", function (e) {
-				e.preventDefault();
-				const name = decodeURIComponent($(this).attr("href").split("/").pop());
-				frappe.model.open_mapped_doc({
-					method: "meeting_management.meeting_management.doctype.meeting_schedule.meeting_schedule.make_meeting",
-					source_name: name,
-				});
-			});
 		});
 	}
 	load();

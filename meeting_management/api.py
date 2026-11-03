@@ -49,7 +49,7 @@ def lead_get_data(data):
 		},
 		'transactions': [
 			{
-				'items': ['Opportunity', 'Quotation','Meeting Schedule','Meeting']
+				'items': ['Opportunity', 'Quotation', 'Meeting Schedule']
 			},
 		]
 	}

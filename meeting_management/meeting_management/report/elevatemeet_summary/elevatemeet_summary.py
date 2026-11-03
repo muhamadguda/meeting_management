@@ -18,8 +18,8 @@ def execute(filters=None):
 	if filters.get("organiser"):
 		conds["meeting_arranged_by"] = filters["organiser"]
 	rows = frappe.get_all("Meeting Schedule", filters=conds,
-		fields=["name", "meeting_arranged_by", "scheduled_from", "status", "opportunity"], limit_page_length=0)
-	notes = set(frappe.get_all("Meeting", filters={"docstatus": 1, "schedule_ref": ["in", [r.name for r in rows] or [""]]}, pluck="schedule_ref"))
+		fields=["name", "meeting_arranged_by", "scheduled_from", "status", "opportunity", "discussion"], limit_page_length=0)
+	notes = {r.name for r in rows if (r.discussion or "").strip()}   # one form (option A): notes are on the meeting itself
 	deals = [r.opportunity for r in rows if r.opportunity]
 	proposed = set(frappe.get_all("Opportunity", filters={"name": ["in", deals or [""]], "custom_proposal_sent_on": ["is", "set"]}, pluck="name")) if deals else set()
 

@@ -110,6 +110,40 @@ def notes_submitted(doc, method=None):
 	o.add_comment("Comment", _("Discovery meeting held (meeting notes {0}).").format(doc.name))
 
 
+@frappe.whitelist()
+def mark_held(name):
+	"""Option A (3 Nov 2026): one meeting form. Mark as Held closes the meeting: Held + time, the BD meeting completed,
+	the deal at Meeting Held (BD KPI), and the discussion on the lead's or applicant's timeline."""
+	s = frappe.get_doc("Meeting Schedule", name)
+	s.check_permission("write")
+	if s.status == "Cancelled":
+		frappe.throw(_("This meeting was cancelled."))
+	if s.status == "Held":
+		return
+	s.status = "Held"
+	s.held_on = now_datetime()
+	s.flags.ignore_mandatory = True
+	s.save()
+	if s.bd_event and frappe.db.exists("Event", s.bd_event):
+		e = frappe.get_doc("Event", s.bd_event)
+		if e.status != "Completed":
+			e.status = "Completed"
+			e.save(ignore_permissions=True)
+	if s.opportunity and frappe.db.exists("Opportunity", s.opportunity):
+		o = frappe.get_doc("Opportunity", s.opportunity)
+		if o.status == "Open" and o.sales_stage == OPEN_DEAL_STAGE:
+			o.sales_stage = "Meeting Held"
+			o.custom_meeting_held_on = str(get_datetime(s.scheduled_from or s.held_on))[:10]
+			o.save(ignore_permissions=True)
+			o.add_comment("Comment", _("Discovery meeting held ({0}).").format(s.name))
+	if s.party_type and s.party and frappe.db.exists(s.party_type, s.party):
+		who = frappe.utils.get_fullname(frappe.session.user)
+		text = "<b>" + _("Meeting held") + "</b> (<a href='" + get_url_to_form("Meeting Schedule", s.name) + "'>" + s.name + "</a>) " + _("by {0}").format(who)
+		if s.discussion:
+			text += "<br>" + s.discussion
+		frappe.get_doc(s.party_type, s.party).add_comment("Comment", text)
+
+
 # ---------------------------------------------------------------- schedule rules
 
 def schedule_validate(doc, method=None):
@@ -121,8 +155,6 @@ def schedule_validate(doc, method=None):
 		doc.party_type = doc.party = None
 		if not doc.organisation:
 			doc.organisation = _("Internal")
-	elif not doc.organisation and not doc.flags.ignore_mandatory:
-		frappe.throw(_("Pick the lead or job applicant for an external meeting."))
 	if doc.scheduled_from and doc.scheduled_to and get_datetime(doc.scheduled_to) < get_datetime(doc.scheduled_from):
 		frappe.throw(_("The meeting must end after it starts."))
 	seen = set()
@@ -411,12 +443,12 @@ def my_meetings():
 	today = getdate()
 	week_end = add_to_date(today, days=7)
 	fields = ["name", "organisation", "meeting_type", "scheduled_from", "scheduled_to", "status", "meeting_arranged_by", "is_online"]
-	rows = frappe.get_all("Meeting Schedule", filters={"name": ["in", list(mine) or [""]]}, fields=fields, order_by="scheduled_from asc")
-	written = set(frappe.get_all("Meeting", filters={"schedule_ref": ["in", [r.name for r in rows] or [""]], "docstatus": ["<", 2]}, pluck="schedule_ref"))
+	rows = frappe.get_all("Meeting Schedule", filters={"name": ["in", list(mine) or [""]], "scheduled_from": ["is", "set"]},
+		fields=fields, order_by="scheduled_from asc")
 	out = {"today": [], "week": [], "notes_due": []}
 	for r in rows:
 		day = getdate(r.scheduled_from)
-		r.notes = r.name in written
+		r.notes = r.status == "Held"   # one form (option A): a held meeting has its notes
 		if r.status == "Scheduled" and day == today:
 			out["today"].append(r)
 		elif r.status == "Scheduled" and today < day <= getdate(week_end):

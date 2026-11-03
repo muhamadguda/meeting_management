@@ -14,7 +14,7 @@ import frappe
 from frappe import _
 from frappe.utils import add_to_date, get_datetime, get_url_to_form, now_datetime, getdate, format_datetime
 
-BOT = "ElevateMeet"
+BOT = "Meetings Bot"   # user, 3 Nov 2026
 OPEN_DEAL_STAGE = "Meeting Confirmed"
 
 
@@ -370,41 +370,96 @@ def send_to_client(name):
 	return recipients
 
 
-# ---------------------------------------------------------------- reminders
+# ---------------------------------------------------------------- reminders (Meetings Bot)
 
 def send_reminders():
-	"""Every 15 minutes: a Raven message about an hour before each scheduled meeting, once."""
-	if "raven" not in frappe.get_installed_apps() or not frappe.db.exists("Raven Bot", BOT) or not settings().send_reminders:
+	"""Every 15 minutes: before each scheduled meeting, Meetings Bot reminds the people in it, each about their own
+	meeting only (the organiser and the Elevate attendees), on Raven and by email. Once per meeting."""
+	if not settings().send_reminders:
 		return
 	now = now_datetime()
 	due = frappe.get_all("Meeting Schedule", filters={
 		"status": "Scheduled", "reminded": 0,
 		"scheduled_from": ["between", [now, add_to_date(now, minutes=int(settings().reminder_minutes) + 15)]],
 	}, pluck="name")
-	if not due:
-		return
-	bot = frappe.get_doc("Raven Bot", BOT)
 	for name in due:
 		s = frappe.get_doc("Meeting Schedule", name)
-		html = (
-			"<p><strong>" + frappe.utils.escape_html(title(s)) + "</strong></p>"
-			+ "<p>" + _("Starts at {0}.").format(format_datetime(s.scheduled_from, "HH:mm")) + "</p>"
-			+ '<p><a href="' + get_url_to_form("Meeting Schedule", s.name) + '">' + _("Open the meeting") + "</a></p>"
-		)
-		for u in staff_recipients(s):
-			if frappe.db.exists("Raven User", {"user": u}):
-				try:
-					bot.send_direct_message(u, html)
-				except Exception:
-					frappe.log_error(title="ElevateMeet: reminder failed", message=frappe.get_traceback())
+		for user in staff_recipients(s):
+			remind(user, s)
 		s.db_set("reminded", 1, update_modified=False)
 	frappe.db.commit()
+
+
+def reminder_lines(s):
+	"""The meeting's details, the same in Raven and in the email."""
+	start = get_datetime(s.scheduled_from)
+	end = get_datetime(s.scheduled_to) if s.scheduled_to else None
+	minutes = max(0, int((start - now_datetime()).total_seconds() // 60))
+	when = format_datetime(start, "EEEE d MMM, HH:mm") + (" - " + format_datetime(end, "HH:mm") if end else "")
+	if s.get("meeting_type") == "Internal":
+		depts = chosen_departments(s)
+		with_whom = _("Internal") + (" (" + ", ".join(depts) + ")" if depts else "")
+	else:
+		with_whom = (s.organisation or s.party or "") + (" - " + _(s.party_type) if s.party_type else "")
+	rows = [(_("When"), when), (_("With"), with_whom), (_("Organiser"), frappe.utils.get_fullname(s.meeting_arranged_by) if s.meeting_arranged_by else "")]
+	if s.is_online:
+		rows.append((_("Where"), _("Online")))
+	if s.get("meeting_agenda"):
+		rows.append((_("Agenda"), clean(s.meeting_agenda).replace("\\", "")))
+	return minutes, [(k, v) for k, v in rows if v]
+
+
+def remind(user, s, test=False):
+	minutes, rows = reminder_lines(s)
+	head = (_("TEST - ") if test else "") + (_("Your meeting starts in {0} minutes").format(minutes) if minutes else _("Your meeting is starting now"))
+	link = get_url_to_form("Meeting Schedule", s.name)
+	esc = frappe.utils.escape_html
+	first = esc((frappe.db.get_value("User", user, "first_name") or "").strip())
+	raven = ("<p><strong>" + esc(head) + "</strong></p>" + ("<p>" + _("Hi {0},").format(first) + "</p>" if first else "")
+		+ "<p><b>" + esc(title(s)) + "</b><br>" + "<br>".join("<b>" + esc(k) + ":</b> " + esc(v) for k, v in rows) + "</p>"
+		+ '<p><a href="' + link + '">' + _("Open the meeting") + "</a></p>")
+	if "raven" in frappe.get_installed_apps() and frappe.db.exists("Raven Bot", BOT) and frappe.db.exists("Raven User", {"user": user}):
+		try:
+			frappe.get_doc("Raven Bot", BOT).send_direct_message(user, raven)
+		except Exception:
+			frappe.log_error(title="Meetings Bot: Raven reminder failed", message=frappe.get_traceback())
+	email = frappe.db.get_value("User", user, "email")
+	if not email:
+		return
+	table = "".join('<tr><td style="padding:4px 14px 4px 0;color:#5A5A78">' + esc(k) + '</td><td style="padding:4px 0">' + esc(v) + "</td></tr>" for k, v in rows)
+	body = ('<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#26255E">'
+		+ '<p style="font-size:18px;font-weight:bold;margin:0 0 6px">' + esc(head) + "</p>"
+		+ ("<p>" + _("Hi {0},").format(first) + "</p>" if first else "")
+		+ '<p style="font-weight:bold;margin:12px 0 4px">' + esc(title(s)) + "</p><table>" + table + "</table>"
+		+ '<p style="margin:20px 0"><a href="' + link + '" style="background:#e5306b;color:#ffffff;text-decoration:none;border-radius:6px;padding:11px 22px;font-weight:bold;display:inline-block">' + _("Open the meeting") + "</a></p>"
+		+ '<p style="color:#5A5A78;font-size:13px">' + _("You get this because you are in this meeting. Meetings Bot only reminds you about your own meetings.") + "</p></div>")
+	try:
+		frappe.sendmail(recipients=[email], subject=head + ": " + title(s), message=body,
+			reference_doctype="Meeting Schedule", reference_name=s.name, now=test)
+	except Exception:
+		frappe.log_error(title="Meetings Bot: email reminder failed", message=frappe.get_traceback())
+
+
+@frappe.whitelist()
+def send_test_reminder():
+	"""Sends the caller (only) a test reminder for their next meeting, or for a sample meeting if they have none."""
+	user = frappe.session.user
+	mine = frappe.get_all("Meeting Schedule", filters={"status": "Scheduled", "meeting_arranged_by": user,
+		"scheduled_from": [">", now_datetime()]}, pluck="name", order_by="scheduled_from asc", limit=1)
+	if mine:
+		s = frappe.get_doc("Meeting Schedule", mine[0])
+	else:
+		s = frappe.get_doc({"doctype": "Meeting Schedule", "name": "SCH-TEST", "meeting_type": "External", "party_type": "Lead",
+			"organisation": "Sample Company", "meeting_arranged_by": user, "is_online": 1, "meeting_agenda": "Sample meeting for the reminder test",
+			"scheduled_from": add_to_date(now_datetime(), minutes=60), "scheduled_to": add_to_date(now_datetime(), minutes=120)})
+	remind(user, s, test=True)
+	return s.name
 
 
 def make_bot():
 	if "raven" in frappe.get_installed_apps() and not frappe.db.exists("Raven Bot", BOT):
 		frappe.get_doc({"doctype": "Raven Bot", "bot_name": BOT,
-						"description": "Reminds people of their meetings an hour before."}).insert(ignore_permissions=True)
+						"description": "Reminds each person about their own meetings, on Raven and by email."}).insert(ignore_permissions=True)
 
 
 # ---------------------------------------------------------------- My Meetings

@@ -21,26 +21,39 @@ OPEN_DEAL_STAGE = "Meeting Confirmed"
 # ---------------------------------------------------------------- BD link
 
 def schedule_from_deal(doc, method=None):
-	"""Opportunity after_insert: a deal with a BD meeting gets its Meeting Schedule."""
+	"""Opportunity after_insert: the deal joins the meeting booked for it (made at booking), or gets one."""
 	if not doc.get("custom_meeting") or not frappe.db.exists("Event", doc.custom_meeting):
 		return
 	if frappe.db.exists("Meeting Schedule", {"bd_event": doc.custom_meeting}):
 		frappe.db.set_value("Meeting Schedule", {"bd_event": doc.custom_meeting}, "opportunity", doc.name)
 		return
-	event = frappe.get_doc("Event", doc.custom_meeting)
 	lead = doc.party_name if doc.opportunity_from == "Lead" else None
-	organiser = doc.get("opportunity_owner") or event.owner
+	bd_schedule(frappe.get_doc("Event", doc.custom_meeting), lead, doc.get("opportunity_owner"), doc)
+
+
+def schedule_from_booking(doc, method=None):
+	"""Event after_insert (user, 3 Nov 2026): a BD meeting booked on a lead (Log Call > Meeting Booked) is a meeting in
+	ElevateMeet straight away, with the BDE as organiser."""
+	if doc.get("event_category") != "Meeting" or frappe.db.exists("Meeting Schedule", {"bd_event": doc.name}):
+		return
+	lead = next((p.reference_docname for p in doc.get("event_participants") or [] if p.reference_doctype == "Lead"), None)
+	if lead:
+		bd_schedule(doc, lead, doc.owner)
+
+
+def bd_schedule(event, lead, organiser=None, deal=None):
+	organiser = organiser or event.owner
 	schedule = frappe.get_doc({
 		"doctype": "Meeting Schedule",
 		"meeting_type": "External Meeting",
 		"party_type": "Lead" if lead else None,
 		"party": lead,
 		"lead": lead,
-		"opportunity": doc.name,
+		"opportunity": deal.name if deal else None,
 		"bd_event": event.name,
 		"scheduled_from": event.starts_on,
 		"scheduled_to": event.ends_on or add_to_date(event.starts_on, minutes=60),
-		"organisation": doc.get("customer_name") or doc.get("title") or lead or doc.name,
+		"organisation": (deal and (deal.get("customer_name") or deal.get("title"))) or lead,
 		"meeting_arranged_by": organiser,
 		"is_online": 1 if (event.get("location") or "").lower().startswith("online") else 0,
 		"meeting_agenda": event.get("description"),
@@ -51,6 +64,87 @@ def schedule_from_deal(doc, method=None):
 	schedule.flags.ignore_mandatory = True
 	schedule.flags.from_deal = True
 	schedule.insert(ignore_permissions=True)
+
+
+def event_share_attendee(doc, method=None):
+	"""DocShare after_insert: a person shared on a BD meeting joins its ElevateMeet meeting (Log Call shares the meeting
+	with the attendees right after booking it)."""
+	if doc.share_doctype != "Event" or not doc.user or not is_staff(doc.user):
+		return
+	name = frappe.db.get_value("Meeting Schedule", {"bd_event": doc.share_name})
+	if not name:
+		return
+	s = frappe.get_doc("Meeting Schedule", name)
+	if s.status != "Scheduled" or doc.user == s.meeting_arranged_by or doc.user in [r.user for r in s.get("attendees") or []]:
+		return
+	s.append("attendees", {"user": doc.user})
+	s.flags.ignore_mandatory = True
+	s.save(ignore_permissions=True)
+
+
+INTERVIEW_HELD = ("Cleared", "Rejected", "Passed", "Failed")
+INTERVIEW_CANCELLED = ("Cancelled", "No Show")
+
+
+def interview_meeting(doc, method=None):
+	"""Interview after_insert / on_update (user, 3 Nov 2026): an interview booked ahead with a job applicant is a
+	meeting in ElevateMeet (the recruiter organises, the interviewers attend) and follows the interview's time and result.
+	An interview logged after the fact (its start already passed when first saved) doesn't become a meeting."""
+	if not doc.get("job_applicant") or not doc.get("scheduled_on") or not doc.get("from_time"):
+		return
+	start = get_datetime(str(doc.scheduled_on) + " " + str(doc.from_time))
+	end = get_datetime(str(doc.scheduled_on) + " " + str(doc.to_time)) if doc.get("to_time") else None
+	if not end or end <= start:
+		end = add_to_date(start, minutes=30)
+	name = frappe.db.get_value("Meeting Schedule", {"interview": doc.name})
+	if not name and start <= now_datetime():
+		return
+	status = "Cancelled" if doc.status in INTERVIEW_CANCELLED else "Held" if doc.status in INTERVIEW_HELD else "Scheduled"
+	organiser = doc.get("custom_recruiter") or doc.owner
+	people = [r.interviewer for r in doc.get("interview_details") or [] if r.get("interviewer")]
+	if name:
+		s = frappe.get_doc("Meeting Schedule", name)
+		s.scheduled_from, s.scheduled_to = start, end
+		if s.status != "Held":
+			s.status = status
+		have = {r.user for r in s.get("attendees") or []}
+		for u in people:
+			if u not in have and u != s.meeting_arranged_by:
+				s.append("attendees", {"user": u})
+		s.flags.ignore_mandatory = True
+		s.save(ignore_permissions=True)
+		return
+	a = frappe.db.get_value("Job Applicant", doc.job_applicant, ["applicant_name", "email_id", "phone_number"], as_dict=True) or {}
+	kind = doc.get("interview_type") or doc.get("interview_round") or _("Interview")
+	s = frappe.get_doc({
+		"doctype": "Meeting Schedule",
+		"meeting_type": "External Meeting",
+		"party_type": "Job Applicant",
+		"party": doc.job_applicant,
+		"organisation": a.get("applicant_name"),
+		"contact_person_name": a.get("applicant_name"),
+		"email_id": a.get("email_id"),
+		"mobile_no": a.get("phone_number"),
+		"interview": doc.name,
+		"status": status,
+		"scheduled_from": start,
+		"scheduled_to": end,
+		"meeting_arranged_by": organiser,
+		"meeting_agenda": _("{0} with {1}").format(kind, a.get("applicant_name") or doc.job_applicant),
+		"attendees": [{"user": u} for u in dict.fromkeys(people) if u != organiser],
+	})
+	s.flags.ignore_mandatory = True
+	s.flags.from_deal = True
+	s.insert(ignore_permissions=True)
+
+
+def link_on_party(doc):
+	"""The lead's or applicant's "Meeting" link shows its latest meeting (user, 3 Nov 2026)."""
+	if doc.party_type in ("Lead", "Job Applicant") and doc.party and frappe.get_meta(doc.party_type).has_field("custom_meeting_schedule"):
+		latest = frappe.get_all("Meeting Schedule", filters={"party_type": doc.party_type, "party": doc.party},
+			pluck="name", order_by="scheduled_from desc, creation desc", limit=1)
+		if latest:
+			frappe.db.set_value(doc.party_type, doc.party, "custom_meeting_schedule", latest[0], update_modified=False)
 
 
 def event_attendees(event, organiser):
@@ -216,6 +310,7 @@ def staff_query(doctype, txt, searchfield, start, page_len, filters):
 def schedule_on_update(doc, method=None):
 	share_with_attendees(doc)
 	send_staff_invites(doc)
+	link_on_party(doc)
 
 
 def share_with_attendees(doc):

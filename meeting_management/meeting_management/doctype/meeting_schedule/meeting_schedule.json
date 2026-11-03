@@ -42,6 +42,7 @@
   "customer",
   "opportunity",
   "bd_event",
+  "interview",
   "reminded",
   "invite_key",
   "invite_sequence",
@@ -292,6 +293,13 @@
    "fieldtype": "Link",
    "label": "BD Meeting",
    "options": "Event",
+   "read_only": 1
+  },
+  {
+   "fieldname": "interview",
+   "fieldtype": "Link",
+   "label": "Interview",
+   "options": "Interview",
    "read_only": 1
   },
   {

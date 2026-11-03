@@ -118,7 +118,15 @@ override_doctype_dashboards = {
 # ElevateMeet (Elevate, 3 Nov 2026): BD link, staff invites, reminders (meeting_management/elevatemeet.py)
 doc_events = {
 	"Opportunity": {"after_insert": "meeting_management.elevatemeet.schedule_from_deal"},
-	"Event": {"on_update": "meeting_management.elevatemeet.follow_event"},
+	"Event": {
+		"after_insert": "meeting_management.elevatemeet.schedule_from_booking",
+		"on_update": "meeting_management.elevatemeet.follow_event",
+	},
+	"DocShare": {"after_insert": "meeting_management.elevatemeet.event_share_attendee"},
+	"Interview": {
+		"after_insert": "meeting_management.elevatemeet.interview_meeting",
+		"on_update": "meeting_management.elevatemeet.interview_meeting",
+	},
 	"Meeting Schedule": {
 		"validate": "meeting_management.elevatemeet.schedule_validate",
 		"on_update": "meeting_management.elevatemeet.schedule_on_update",

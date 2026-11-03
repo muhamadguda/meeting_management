@@ -164,6 +164,15 @@ def _get_party_details(party=None, party_type="Customer", ignore_permissions=Fal
 	out = frappe._dict({
 		party_type.lower(): party
 	})
+	if party_type == "Lead":   # ElevateMeet (3 Nov 2026): company leads fill from the lead itself
+		if not ignore_permissions and not frappe.has_permission(party_type, "read", party):
+			frappe.throw(_("Not permitted for {0}").format(party), frappe.PermissionError)
+		l = frappe.db.get_value("Lead", party, ["lead_name", "company_name", "email_id", "phone", "mobile_no"], as_dict=True) or {}
+		contact = get_default_contact("Lead", party)
+		out.update({"organisation": l.get("company_name") or l.get("lead_name"), "contact_person": contact,
+			"contact_display": l.get("lead_name"), "contact_dispaly": l.get("lead_name"), "contact_email": l.get("email_id"),
+			"contact_mobile": l.get("phone") or l.get("mobile_no")})
+		return out
 	if party_type == "Job Applicant":   # ElevateMeet (3 Nov 2026): applicants meet Elevate too
 		if not ignore_permissions and not frappe.has_permission(party_type, "read", party):
 			frappe.throw(_("Not permitted for {0}").format(party), frappe.PermissionError)

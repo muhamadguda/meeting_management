@@ -5,7 +5,7 @@ frappe.query_reports["ElevateMeet Summary"] = {
 	filters: [
 		{ fieldname: "from_date", label: __("From"), fieldtype: "Date", default: frappe.datetime.add_days(frappe.datetime.get_today(), -56) },
 		{ fieldname: "to_date", label: __("To"), fieldtype: "Date", default: frappe.datetime.add_days(frappe.datetime.get_today(), 7) },
-		{ fieldname: "meeting_type", label: __("Meeting Type"), fieldtype: "Select", options: "\nExternal\nInternal" },
+		{ fieldname: "meeting_type", label: __("Meeting Type"), fieldtype: "Select", options: "\nExternal Meeting\nInternal Meeting" },
 		{ fieldname: "organiser", label: __("Organiser"), fieldtype: "Link", options: "User" },
 	],
 };

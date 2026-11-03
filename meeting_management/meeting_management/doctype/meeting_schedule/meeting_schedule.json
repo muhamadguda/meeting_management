@@ -14,17 +14,17 @@
   "department_scope",
   "department",
   "departments",
-  "scheduled_from",
-  "scheduled_to",
   "company",
-  "organisation",
   "is_online",
   "column_break_7",
   "meeting_arranged_by",
+  "scheduled_from",
+  "scheduled_to",
   "contact",
   "contact_person_name",
   "mobile_no",
   "email_id",
+  "organisation",
   "meeting_agenda",
   "attendees_section",
   "attendees",
@@ -59,7 +59,7 @@
    "fieldname": "meeting_type",
    "fieldtype": "Select",
    "label": "Meeting Type",
-   "options": "\nExternal\nInternal",
+   "options": "\nExternal Meeting\nInternal Meeting",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "reqd": 1
@@ -79,61 +79,42 @@
    "fieldtype": "Select",
    "label": "Party Type",
    "options": "\nLead\nJob Applicant",
-   "depends_on": "eval:doc.meeting_type!='Internal'"
+   "depends_on": "eval:doc.meeting_type!='Internal Meeting'"
   },
   {
    "fieldname": "party",
    "fieldtype": "Dynamic Link",
    "label": "Party",
    "options": "party_type",
-   "depends_on": "eval:doc.meeting_type!='Internal'"
+   "depends_on": "eval:doc.meeting_type!='Internal Meeting'"
   },
   {
    "fieldname": "department_scope",
    "fieldtype": "Select",
    "label": "Party Type",
    "options": "\nSame Department\nDifferent Departments",
-   "depends_on": "eval:doc.meeting_type=='Internal'"
+   "depends_on": "eval:doc.meeting_type=='Internal Meeting'"
   },
   {
    "fieldname": "department",
    "fieldtype": "Link",
    "label": "Department",
    "options": "Department",
-   "depends_on": "eval:doc.meeting_type=='Internal' && doc.department_scope=='Same Department'"
+   "depends_on": "eval:doc.meeting_type=='Internal Meeting' && doc.department_scope=='Same Department'"
   },
   {
    "fieldname": "departments",
    "fieldtype": "Table MultiSelect",
    "label": "Departments",
    "options": "Meeting Department",
-   "depends_on": "eval:doc.meeting_type=='Internal' && doc.department_scope=='Different Departments'"
-  },
-  {
-   "fieldname": "scheduled_from",
-   "fieldtype": "Datetime",
-   "in_list_view": 1,
-   "label": "Scheduled From"
-  },
-  {
-   "fieldname": "scheduled_to",
-   "fieldtype": "Datetime",
-   "in_list_view": 1,
-   "label": "Scheduled To"
+   "depends_on": "eval:doc.meeting_type=='Internal Meeting' && doc.department_scope=='Different Departments'"
   },
   {
    "fieldname": "company",
    "fieldtype": "Link",
    "label": "Company",
-   "options": "Company"
-  },
-  {
-   "fetch_from": "lead.company_name",
-   "fieldname": "organisation",
-   "fieldtype": "Data",
-   "in_standard_filter": 1,
-   "label": "Name",
-   "depends_on": "eval:doc.meeting_type!='Internal'"
+   "options": "Company",
+   "hidden": 1
   },
   {
    "default": "0",
@@ -153,36 +134,55 @@
    "label": "Organiser",
    "options": "User",
    "default": "__user",
-   "read_only": 1,
-   "description": "The person who scheduled the meeting."
+   "read_only": 1
+  },
+  {
+   "fieldname": "scheduled_from",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Scheduled From"
+  },
+  {
+   "fieldname": "scheduled_to",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Scheduled To"
   },
   {
    "fieldname": "contact",
    "fieldtype": "Link",
    "label": "Contact",
    "options": "Contact",
-   "depends_on": "eval:doc.meeting_type!='Internal'"
+   "depends_on": "eval:doc.meeting_type!='Internal Meeting'"
   },
   {
    "fetch_from": "contact.first_name",
    "fieldname": "contact_person_name",
    "fieldtype": "Data",
    "label": "Contact Person Name",
-   "depends_on": "eval:doc.meeting_type!='Internal'"
+   "depends_on": "eval:doc.meeting_type!='Internal Meeting'"
   },
   {
    "fetch_from": "contact.mobile_no",
    "fieldname": "mobile_no",
    "fieldtype": "Data",
    "label": "Mobile No",
-   "depends_on": "eval:doc.meeting_type!='Internal'"
+   "depends_on": "eval:doc.meeting_type!='Internal Meeting'"
   },
   {
    "fieldname": "email_id",
    "fieldtype": "Data",
    "label": "Email Id",
    "options": "Email",
-   "depends_on": "eval:doc.meeting_type!='Internal'"
+   "depends_on": "eval:doc.meeting_type!='Internal Meeting'"
+  },
+  {
+   "fetch_from": "lead.company_name",
+   "fieldname": "organisation",
+   "fieldtype": "Data",
+   "in_standard_filter": 1,
+   "label": "Company Name",
+   "depends_on": "eval:doc.meeting_type!='Internal Meeting'"
   },
   {
    "fieldname": "meeting_agenda",
@@ -217,7 +217,7 @@
    "fieldtype": "Table MultiSelect",
    "label": "CC To",
    "options": "Meeting CC",
-   "depends_on": "eval:doc.meeting_type!='Internal'",
+   "depends_on": "eval:doc.meeting_type!='Internal Meeting'",
    "description": "Elevate people copied on the invitation sent to the client."
   },
   {
@@ -230,7 +230,7 @@
    "fieldtype": "Button",
    "label": "Send to Client",
    "options": "send_invitation",
-   "depends_on": "eval:doc.meeting_type!='Internal'"
+   "depends_on": "eval:doc.meeting_type!='Internal Meeting'"
   },
   {
    "fieldname": "amended_from",
@@ -336,7 +336,7 @@
  ],
  "is_calendar_and_gantt": 1,
  "links": [],
- "modified": "2026-11-04 00:30:00.000000",
+ "modified": "2026-11-04 01:30:00.000000",
  "modified_by": "Administrator",
  "module": "Meeting Management",
  "name": "Meeting Schedule",

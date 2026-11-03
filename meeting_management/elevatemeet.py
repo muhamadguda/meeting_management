@@ -32,7 +32,7 @@ def schedule_from_deal(doc, method=None):
 	organiser = doc.get("opportunity_owner") or event.owner
 	schedule = frappe.get_doc({
 		"doctype": "Meeting Schedule",
-		"meeting_type": "External",
+		"meeting_type": "External Meeting",
 		"party_type": "Lead" if lead else None,
 		"party": lead,
 		"lead": lead,
@@ -125,15 +125,15 @@ def mark_held(name):
 # ---------------------------------------------------------------- schedule rules
 
 def schedule_validate(doc, method=None):
-	doc.meeting_type = doc.meeting_type or "External"
+	doc.meeting_type = doc.meeting_type or "External Meeting"
 	doc.status = doc.status or "Scheduled"
 	if doc.is_new() and not doc.flags.from_deal:
 		# the organiser is always the person scheduling it (read-only on the form); a BD meeting keeps the deal's BDE
 		doc.meeting_arranged_by = frappe.session.user
-	if doc.meeting_type == "Internal":
+	if doc.meeting_type == "Internal Meeting":
 		doc.party_type = doc.party = None
 		if not doc.organisation:
-			doc.organisation = _("Internal")
+			doc.organisation = _("Internal Meeting")
 	if doc.scheduled_from and doc.scheduled_to and get_datetime(doc.scheduled_to) < get_datetime(doc.scheduled_from):
 		frappe.throw(_("The meeting must end after it starts."))
 	seen = set()
@@ -158,7 +158,7 @@ def chosen_departments(doc):
 
 
 def check_departments(doc, users=None, employees=None):
-	if doc.get("meeting_type") != "Internal":
+	if doc.get("meeting_type") != "Internal Meeting":
 		doc.department_scope = doc.department = None
 		doc.set("departments", [])
 		return
@@ -324,7 +324,7 @@ def clean(text):
 
 
 def title(doc):
-	if doc.get("meeting_type") == "Internal":
+	if doc.get("meeting_type") == "Internal Meeting":
 		return _("Internal meeting: {0}").format(doc.get("meeting_agenda") and clean(doc.meeting_agenda)[:60] or doc.name)
 	return _("Meeting: {0}").format(doc.organisation or doc.party or doc.name)
 
@@ -358,7 +358,7 @@ def send_to_client(name):
 	"""The "Send to Client" button: the invitation message and the calendar invite to the client's email (and CC)."""
 	doc = frappe.get_doc("Meeting Schedule", name)
 	doc.check_permission("write")
-	if doc.meeting_type == "Internal":
+	if doc.meeting_type == "Internal Meeting":
 		frappe.throw(_("An internal meeting has no client."))
 	if not doc.email_id:
 		frappe.throw(_("Add the client's email first."))
@@ -396,9 +396,9 @@ def reminder_lines(s):
 	end = get_datetime(s.scheduled_to) if s.scheduled_to else None
 	minutes = max(0, int((start - now_datetime()).total_seconds() // 60))
 	when = format_datetime(start, "EEEE d MMM, HH:mm") + (" - " + format_datetime(end, "HH:mm") if end else "")
-	if s.get("meeting_type") == "Internal":
+	if s.get("meeting_type") == "Internal Meeting":
 		depts = chosen_departments(s)
-		with_whom = _("Internal") + (" (" + ", ".join(depts) + ")" if depts else "")
+		with_whom = _("Internal Meeting") + (" (" + ", ".join(depts) + ")" if depts else "")
 	else:
 		with_whom = (s.organisation or s.party or "") + (" - " + _(s.party_type) if s.party_type else "")
 	rows = [(_("When"), when), (_("With"), with_whom), (_("Organiser"), frappe.utils.get_fullname(s.meeting_arranged_by) if s.meeting_arranged_by else "")]
@@ -449,7 +449,7 @@ def send_test_reminder():
 	if mine:
 		s = frappe.get_doc("Meeting Schedule", mine[0])
 	else:
-		s = frappe.get_doc({"doctype": "Meeting Schedule", "name": "SCH-TEST", "meeting_type": "External", "party_type": "Lead",
+		s = frappe.get_doc({"doctype": "Meeting Schedule", "name": "SCH-TEST", "meeting_type": "External Meeting", "party_type": "Lead",
 			"organisation": "Sample Company", "meeting_arranged_by": user, "is_online": 1, "meeting_agenda": "Sample meeting for the reminder test",
 			"scheduled_from": add_to_date(now_datetime(), minutes=60), "scheduled_to": add_to_date(now_datetime(), minutes=120)})
 	remind(user, s, test=True)

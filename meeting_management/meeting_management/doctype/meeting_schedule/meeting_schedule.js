@@ -4,7 +4,7 @@
 // Frappe v16 (this.frm is undefined there), so the contact fetch and filter now run in setup.
 // ElevateMeet (3 Nov 2026, option A): an internal meeting's people come from the same department or chosen departments
 var elevatemeet_departments = (frm) =>
-	frm.doc.meeting_type !== "Internal" ? [] :
+	frm.doc.meeting_type !== "Internal Meeting" ? [] :
 	frm.doc.department_scope === "Same Department" ? (frm.doc.department ? [frm.doc.department] : []) :
 	(frm.doc.departments || []).map((r) => r.department).filter(Boolean);
 
@@ -20,9 +20,16 @@ var elevatemeet_department_events = {
 	},
 };
 
+// ElevateMeet (3 Nov 2026, user): "Lead" reads "Company Leads"; the name box is Company Name or Applicant Name
+function elevatemeet_party_labels(frm) {
+	const $sel = frm.fields_dict.party_type && frm.fields_dict.party_type.$input;
+	if ($sel) $sel.find('option[value="Lead"]').text(__("Company Leads"));
+	frm.set_df_property("organisation", "label", frm.doc.party_type === "Job Applicant" ? __("Applicant Name") : __("Company Name"));
+}
+
 function elevatemeet_add_members(frm, table, to_row) {
 	frm.remove_custom_button(__("Add Department Members"));
-	if (frm.doc.meeting_type !== "Internal" || frm.doc.docstatus > 0) return;
+	if (frm.doc.meeting_type !== "Internal Meeting" || frm.doc.docstatus > 0) return;
 	frm.add_custom_button(__("Add Department Members"), () => {
 		const depts = elevatemeet_departments(frm);
 		if (!depts.length) {
@@ -73,6 +80,9 @@ frappe.ui.form.on('Meeting Schedule', Object.assign({}, elevatemeet_department_e
 		frm.set_query("cc_people", () => ({ filters: { enabled: 1, user_type: "System User" } }));
 		elevatemeet_add_members(frm, "attendees", (p) => ({ user: p.user, full_name: p.employee_name }));
 		frm.set_query('party', () => ({ query: 'meeting_management.elevatemeet.party_query' }));
+		elevatemeet_party_labels(frm);
+		// a smaller Meeting Agenda box
+		frm.fields_dict.meeting_agenda && frm.fields_dict.meeting_agenda.$input && frm.fields_dict.meeting_agenda.$input.css({ height: '72px', 'min-height': '72px' });
 		if (frm.doc.status && !frm.is_new()) {
 			frm.set_intro(frm.doc.status === "Cancelled" ? __("This meeting was cancelled.") :
 				frm.doc.status === "Held" ? __("This meeting was held.") :
@@ -144,6 +154,7 @@ frappe.ui.form.on('Meeting Schedule', Object.assign({}, elevatemeet_department_e
 	},
 
 	party_type: function(frm){
+		elevatemeet_party_labels(frm);
 		frm.set_value('party','');
 		frm.set_value('contact', '');
 		frm.set_value('organisation', '');

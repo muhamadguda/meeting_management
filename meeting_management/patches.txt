@@ -2,3 +2,4 @@
 
 [post_model_sync]
 meeting_management.patches.delete_old_meeting_form
+meeting_management.patches.meeting_type_labels

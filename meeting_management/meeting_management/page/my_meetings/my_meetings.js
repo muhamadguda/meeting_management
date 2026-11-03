@@ -16,12 +16,12 @@ frappe.pages["my-meetings"].on_page_load = function (wrapper) {
 	const card = (r, action) => `
 		<a href="/desk/meeting-schedule/${encodeURIComponent(r.name)}" class="mm-row"
 			style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border-color);border-radius:10px;margin-bottom:8px;color:inherit;text-decoration:none;">
-			<span style="width:36px;height:36px;border-radius:9px;background:${r.meeting_type === "Internal" ? "#26255E" : "#e5306b"};color:#fff;display:flex;align-items:center;justify-content:center;flex:none;">
-				${frappe.utils.icon(r.meeting_type === "Internal" ? "users" : "calendar", "sm")}
+			<span style="width:36px;height:36px;border-radius:9px;background:${r.meeting_type === "Internal Meeting" ? "#26255E" : "#e5306b"};color:#fff;display:flex;align-items:center;justify-content:center;flex:none;">
+				${frappe.utils.icon(r.meeting_type === "Internal Meeting" ? "users" : "calendar", "sm")}
 			</span>
 			<span style="flex:1;min-width:0;">
 				<b style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${frappe.utils.escape_html(r.organisation || r.name)}</b>
-				<span class="text-muted small">${when(r)}${r.is_online ? " · " + __("Online") : ""} · ${__(r.meeting_type || "External")}</span>
+				<span class="text-muted small">${when(r)}${r.is_online ? " · " + __("Online") : ""} · ${__(r.meeting_type || "External Meeting")}</span>
 			</span>
 			${action || ""}
 		</a>`;

@@ -123,10 +123,6 @@ doc_events = {
 		"validate": "meeting_management.elevatemeet.schedule_validate",
 		"on_update": "meeting_management.elevatemeet.schedule_on_update",
 	},
-	"Meeting": {
-		"validate": "meeting_management.elevatemeet.meeting_validate",
-		"on_submit": "meeting_management.elevatemeet.notes_submitted",
-	},
 }
 
 scheduler_events = {

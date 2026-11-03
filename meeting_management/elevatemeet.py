@@ -87,29 +87,6 @@ def follow_event(doc, method=None):
 			s.save(ignore_permissions=True)
 
 
-def notes_submitted(doc, method=None):
-	"""Meeting on_submit: the schedule is Held and its deal moves to Meeting Held (the BD KPI's meetings held)."""
-	if not doc.get("schedule_ref") or not frappe.db.exists("Meeting Schedule", doc.schedule_ref):
-		return
-	s = frappe.get_doc("Meeting Schedule", doc.schedule_ref)
-	if s.status != "Held":
-		s.db_set("status", "Held")
-	if not s.opportunity or not frappe.db.exists("Opportunity", s.opportunity):
-		return
-	o = frappe.get_doc("Opportunity", s.opportunity)
-	if o.status != "Open" or o.sales_stage != OPEN_DEAL_STAGE:
-		return
-	if s.bd_event and frappe.db.exists("Event", s.bd_event):
-		e = frappe.get_doc("Event", s.bd_event)
-		if e.status != "Completed":
-			e.status = "Completed"
-			e.save(ignore_permissions=True)
-	o.sales_stage = "Meeting Held"
-	o.custom_meeting_held_on = str(get_datetime(doc.meeting_from or s.scheduled_from))[:10]
-	o.save(ignore_permissions=True)
-	o.add_comment("Comment", _("Discovery meeting held (meeting notes {0}).").format(doc.name))
-
-
 @frappe.whitelist()
 def mark_held(name):
 	"""Option A (3 Nov 2026): one meeting form. Mark as Held closes the meeting: Held + time, the BD meeting completed,
@@ -170,13 +147,6 @@ def schedule_validate(doc, method=None):
 
 
 # ---------------------------------------------------------------- internal meetings: departments (option A, 3 Nov 2026)
-
-def meeting_validate(doc, method=None):
-	"""Meeting (notes) validate: an internal meeting's Elevate people come from its department(s)."""
-	doc.meeting_type = doc.meeting_type or "External"
-	if doc.meeting_type == "Internal":
-		doc.party_type = doc.party = None
-	check_departments(doc, employees=[r.employee for r in doc.get("meeting_company_representative") or [] if r.employee])
 
 
 def chosen_departments(doc):

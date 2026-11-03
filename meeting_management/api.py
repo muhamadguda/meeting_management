@@ -15,7 +15,6 @@ def customer_get_data():
 			"Opportunity": "party_name",
 			"Bank Account": "party",
 			"Subscription": "party",
-            'Meeting':'party',
             "Meeting Schedule":'party'
 		},
 		"dynamic_links": {"party_name": ["Customer", "quotation_to"]},
@@ -30,7 +29,7 @@ def customer_get_data():
 			{"label": _("Projects"), "items": ["Project"]},
 			{"label": _("Pricing"), "items": ["Pricing Rule"]},
 			{"label": _("Subscriptions"), "items": ["Subscription"]},
-            {"label": _("Meeting"), "items": ["Meeting" ,'Meeting Schedule']},
+            {"label": _("Meeting"), "items": ["Meeting Schedule"]},
 		],
 	}
 
@@ -41,7 +40,6 @@ def lead_get_data(data):
 		'non_standard_fieldnames': {
 			'Quotation': 'party_name',
 			'Opportunity': 'party_name',
-			"Meeting": "party",
 			"Meeting Schedule": "party",
 		},
 		'dynamic_links': {

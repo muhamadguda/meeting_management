@@ -113,41 +113,6 @@ class MeetingSchedule(Document):
 		doc.email_account = default_sender_name
 		doc.save(ignore_permissions=True)
 		frappe.msgprint("Mail Sent Successfully")
-def add_representatives(source, target):
-	"""ElevateMeet: the organiser and Elevate attendees become the meeting's company representatives."""
-	users = [source.meeting_arranged_by] + [r.user for r in source.get("attendees") or []]
-	have = {r.employee for r in target.get("meeting_company_representative") or []}
-	for u in dict.fromkeys(u for u in users if u):
-		e = frappe.db.get_value("Employee", {"user_id": u, "status": "Active"}, ["name", "employee_name"], as_dict=True)
-		if e and e.name not in have:
-			target.append("meeting_company_representative", {"employee": e.name, "employee_name": e.employee_name, "emp_user_id": u})
-
-
-@frappe.whitelist()
-def make_meeting(source_name, target_doc=None):	
-	doclist = get_mapped_doc("Meeting Schedule", source_name, {
-			"Meeting Schedule":{
-				"doctype": "Meeting",
-				"field_map": {
-					"name": "schedule_ref",
-					"meeting_type": "meeting_type",
-					"scheduled_from": "meeting_from",
-					"scheduled_to": "meeting_to",
-					"contact":"contact_person",
-					'email_id':'email_id'
-
-				},
-				"field_no_map": [
-					"naming_series",
-					"lead",
-					"customer",
-					"opportunity",
-					"email_id"
-				]
-			},
-			"Meeting Department": {"doctype": "Meeting Department"},
-	}, target_doc, add_representatives)	
-	return doclist
 	
 @frappe.whitelist()
 def get_events(start, end, filters=None):

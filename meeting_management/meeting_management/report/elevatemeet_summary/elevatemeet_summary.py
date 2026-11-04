@@ -17,6 +17,12 @@ def execute(filters=None):
 		conds["meeting_type"] = filters["meeting_type"]
 	if filters.get("organiser"):
 		conds["meeting_arranged_by"] = filters["organiser"]
+	# user, 4 Nov 2026: everyone sees only their own meetings (organiser or attendee); the admins see all
+	if not ({"System Manager", "ElevateMeet Manager"} & set(frappe.get_roles())):
+		me = frappe.session.user
+		mine = set(frappe.get_all("Meeting Schedule", filters={"meeting_arranged_by": me}, pluck="name"))
+		mine |= set(frappe.get_all("Meeting Schedule Attendee", filters={"user": me, "parenttype": "Meeting Schedule"}, pluck="parent"))
+		conds["name"] = ["in", list(mine) or [""]]
 	rows = frappe.get_all("Meeting Schedule", filters=conds,
 		fields=["name", "meeting_arranged_by", "scheduled_from", "status", "opportunity", "discussion"], limit_page_length=0)
 	notes = {r.name for r in rows if (r.discussion or "").strip()}   # one form (option A): notes are on the meeting itself

@@ -15,6 +15,7 @@ from frappe import _
 from frappe.utils import add_to_date, get_datetime, get_url_to_form, now_datetime, getdate, format_datetime
 
 BOT = "Meetings Bot"   # user, 3 Nov 2026
+COPY_TO = "mohamed.emad@elevateholding.net"   # user, 4 Nov 2026: gets a Raven copy of every reminder
 OPEN_DEAL_STAGE = "Meeting Confirmed"
 
 
@@ -544,6 +545,14 @@ def remind(user, s, test=False):
 			frappe.get_doc("Raven Bot", BOT).send_direct_message(user, raven)
 		except Exception:
 			frappe.log_error(title="Meetings Bot: Raven reminder failed", message=frappe.get_traceback())
+	# user, 4 Nov 2026: a Raven copy of every reminder goes to the admin (not for test sends)
+	if not test and user != COPY_TO and "raven" in frappe.get_installed_apps() and frappe.db.exists("Raven Bot", BOT) \
+			and frappe.db.exists("Raven User", {"user": COPY_TO}):
+		try:
+			frappe.get_doc("Raven Bot", BOT).send_direct_message(COPY_TO,
+				"<p><i>" + esc(_("Copy - sent to {0}").format(person_name(user))) + "</i></p>" + raven)
+		except Exception:
+			frappe.log_error(title="Meetings Bot: admin copy failed", message=frappe.get_traceback())
 	email = frappe.db.get_value("User", user, "email")
 	if not email:
 		return

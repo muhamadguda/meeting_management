@@ -97,7 +97,7 @@
    "link_count": 0
   }
  ],
- "modified": "2026-11-03 23:30:00.000000",
+ "modified": "2026-11-04 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Meeting Management",
  "name": "ElevateMeet",
@@ -120,6 +120,12 @@
   },
   {
    "role": "HR User"
+  },
+  {
+   "role": "ElevateMeet Manager"
+  },
+  {
+   "role": "ElevateMeet User"
   }
  ],
  "sequence_id": 50,

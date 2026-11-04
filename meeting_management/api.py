@@ -54,4 +54,4 @@ def lead_get_data(data):
 
 
 def has_app_permission():
-	return bool({"System Manager", "Sales Manager", "Sales User", "HR Manager", "HR User"} & set(frappe.get_roles()))
+	return bool({"System Manager", "ElevateMeet Manager", "ElevateMeet User", "Sales Manager", "Sales User", "HR Manager", "HR User"} & set(frappe.get_roles()))

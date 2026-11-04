@@ -1,5 +1,5 @@
 // ElevateMeet (3 Nov 2026, user): the list is ID | Meeting Type | Status | Scheduled From | Scheduled To, status in colour
-const ELEVATEMEET_STATUS_COLOURS = { Scheduled: "blue", Held: "green", Cancelled: "red" };
+const ELEVATEMEET_STATUS_COLOURS = { Scheduled: "blue", "Passed Due": "orange", Done: "green", Held: "green", Cancelled: "red" };
 
 frappe.listview_settings["Meeting Schedule"] = {
 	add_fields: ["status"],

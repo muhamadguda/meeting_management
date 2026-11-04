@@ -85,6 +85,32 @@ def event_share_attendee(doc, method=None):
 
 INTERVIEW_HELD = ("Cleared", "Rejected", "Passed", "Failed")
 INTERVIEW_CANCELLED = ("Cancelled", "No Show")
+# user, 4 Nov 2026: Operations / Client interviews go to the operations head (To) and the operations team leaders (CC),
+# who all become attendees; the booking mail + Raven DMs come from Meetings Bot
+OPS_INTERVIEW_TYPES = ("Operations Interview", "Client Interview")
+OPS_HEAD = "osama.youssef@elevateholding.net"
+OPS_TEAM_PROFILE = "Operations Team"
+
+
+def ops_team_leaders():
+	"""The operations team leaders: enabled users with the "Operations Team" role profile, except the operations head."""
+	users = frappe.get_all("User Role Profile", filters={"role_profile": OPS_TEAM_PROFILE, "parenttype": "User"}, pluck="parent")
+	return [u for u in dict.fromkeys(users) if u != OPS_HEAD and is_staff(u)]
+
+
+def is_ops_interview(doc):
+	return bool(doc.get("interview")) and frappe.db.get_value("Interview", doc.interview, "interview_type") in OPS_INTERVIEW_TYPES
+
+
+def ops_interview_notes(interview, applicant, start):
+	"""The Notes of an Operations / Client interview meeting: who the operations head interviews, and when."""
+	esc = frappe.utils.escape_html
+	head = (frappe.db.get_value("User", OPS_HEAD, "first_name") or "").strip()
+	lob = interview.get("custom_pitch_account") or frappe.db.get_value("Job Applicant", interview.job_applicant, "custom_recruitment_account")
+	greet = (esc(head) + ", you") if head else "You"
+	return ("<p>" + greet + " have someone to interview: <b>" + esc(applicant or interview.job_applicant)
+		+ "</b> (" + esc(interview.job_applicant) + "), " + esc(interview.get("interview_type") or "Interview") + " on <b>"
+		+ esc(format_datetime(start, "EEEE d MMM, HH:mm")) + "</b>." + (" LOB: " + esc(lob) + "." if lob else "") + "</p>")
 
 
 def interview_meeting(doc, method=None):
@@ -106,8 +132,12 @@ def interview_meeting(doc, method=None):
 	if name:
 		s = frappe.get_doc("Meeting Schedule", name)
 		s.scheduled_from, s.scheduled_to = start, end
-		if s.status != "Held":
-			s.status = status
+		# user, 4 Nov 2026: Done / Passed Due are kept; a result still marks Held / Cancelled, a move to the future reopens
+		if status in ("Held", "Cancelled"):
+			if s.status not in ("Held", "Done"):
+				s.status = status
+		elif s.status in ("Passed Due", "Cancelled") and get_datetime(end) > now_datetime():
+			s.status = "Scheduled"
 		have = {r.user for r in s.get("attendees") or []}
 		for u in people:
 			if u not in have and u != s.meeting_arranged_by:
@@ -117,6 +147,9 @@ def interview_meeting(doc, method=None):
 		return
 	a = frappe.db.get_value("Job Applicant", doc.job_applicant, ["applicant_name", "email_id", "phone_number"], as_dict=True) or {}
 	kind = doc.get("interview_type") or doc.get("interview_round") or _("Interview")
+	ops = doc.get("interview_type") in OPS_INTERVIEW_TYPES
+	if ops:   # user, 4 Nov 2026: the operations head and the team leaders attend
+		people = people + [OPS_HEAD] + ops_team_leaders()
 	s = frappe.get_doc({
 		"doctype": "Meeting Schedule",
 		"meeting_type": "External Meeting",
@@ -133,6 +166,7 @@ def interview_meeting(doc, method=None):
 		"meeting_arranged_by": organiser,
 		"meeting_agenda": _("{0} with {1}").format(kind, a.get("applicant_name") or doc.job_applicant),
 		"attendees": [{"user": u} for u in dict.fromkeys(people) if u != organiser],
+		"discussion": ops_interview_notes(doc, a.get("applicant_name"), start) if ops else None,
 	})
 	s.flags.ignore_mandatory = True
 	s.flags.from_deal = True
@@ -406,7 +440,11 @@ def send_staff_invites(doc):
 	sequence = (doc.invite_sequence or 0) + (1 if previous else 0)
 	if removed:
 		send_ics(doc, removed, sequence, cancel=True)
-	send_ics(doc, emails, sequence)
+	head = frappe.db.get_value("User", OPS_HEAD, "email")
+	if not previous and head in emails and is_ops_interview(doc):
+		ops_booking_notice(doc, emails, sequence, head)
+	else:
+		send_ics(doc, emails, sequence)
 	doc.db_set({"invite_key": key, "invite_sequence": sequence, "invite_sent_to": ",".join(emails)}, update_modified=False)
 
 
@@ -468,6 +506,46 @@ def send_ics(doc, recipients, sequence, cancel=False, message=None):
 	)
 
 
+def ops_booking_notice(doc, emails, sequence, head):
+	"""user, 4 Nov 2026: an Operations / Client interview was booked. ONE mail (To the operations head, CC the organiser,
+	the team leaders and the other interviewers) with the meeting, its Notes and the calendar invite; and a Meetings Bot
+	Raven DM to each of them (the admin gets a copy)."""
+	esc = frappe.utils.escape_html
+	rows = reminder_lines(doc)[1]
+	link = get_url_to_form("Meeting Schedule", doc.name)
+	heading = _("Interview booked: {0}").format(title(doc))
+	notes = frappe.utils.sanitize_html(doc.discussion or "")
+	table = "".join('<tr><td style="padding:4px 14px 4px 0;color:#5A5A78">' + esc(k) + '</td><td style="padding:4px 0">' + esc(v) + "</td></tr>" for k, v in rows)
+	body = ('<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#26255E">'
+		+ '<p style="font-size:18px;font-weight:bold;margin:0 0 10px">' + esc(heading) + "</p><table>" + table + "</table>"
+		+ ('<p style="font-weight:bold;margin:18px 0 4px">' + _("Notes") + "</p><div>" + notes + "</div>" if notes.strip() else "")
+		+ '<p style="margin:20px 0"><a href="' + link + '" style="background:#e5306b;color:#ffffff;text-decoration:none;border-radius:6px;padding:11px 22px;font-weight:bold;display:inline-block">' + _("Open the meeting") + "</a></p></div>")
+	cc = [e for e in emails if e != head]
+	frappe.sendmail(recipients=[head], cc=cc, subject=heading + " - " + format_datetime(doc.scheduled_from, "EEEE d MMM, HH:mm"),
+		message=body, attachments=[{"fname": "invite.ics", "fcontent": ics(doc, emails, sequence)}],
+		reference_doctype="Meeting Schedule", reference_name=doc.name, expose_recipients="header")
+	if "raven" not in frappe.get_installed_apps() or not frappe.db.exists("Raven Bot", BOT):
+		return
+	raven = ("<p><strong>" + esc(_("New interview booked")) + "</strong></p><p><b>" + esc(title(doc)) + "</b><br>"
+		+ "<br>".join("<b>" + esc(k) + ":</b> " + esc(v) for k, v in rows) + "</p>" + (notes if notes.strip() else "")
+		+ '<p><a href="' + link + '">' + _("Open the meeting") + "</a></p>")
+	sent = []
+	for u in staff_recipients(doc):
+		if not frappe.db.exists("Raven User", {"user": u}):
+			continue
+		try:
+			frappe.get_doc("Raven Bot", BOT).send_direct_message(u, raven)
+			sent.append(u)
+		except Exception:
+			frappe.log_error(title="Meetings Bot: interview booking DM failed", message=frappe.get_traceback())
+	if sent and COPY_TO not in sent and frappe.db.exists("Raven User", {"user": COPY_TO}):
+		try:
+			frappe.get_doc("Raven Bot", BOT).send_direct_message(COPY_TO, "<p><i>" + esc(_("Copy - sent to {0}").format(
+				", ".join(person_name(u) for u in sent))) + "</i></p>" + raven)
+		except Exception:
+			frappe.log_error(title="Meetings Bot: admin copy failed", message=frappe.get_traceback())
+
+
 @frappe.whitelist()
 def send_to_client(name):
 	"""The "Send to Client" button: the invitation message and the calendar invite to the client's email (and CC)."""
@@ -486,6 +564,16 @@ def send_to_client(name):
 
 
 # ---------------------------------------------------------------- reminders (Meetings Bot)
+
+def mark_passed_due():
+	"""Every 15 minutes (user, 4 Nov 2026): a meeting still Scheduled after its end time becomes Passed Due. People can
+	still set it by hand (Done, Held...)."""
+	now = now_datetime()
+	for r in frappe.get_all("Meeting Schedule", filters={"status": "Scheduled", "scheduled_from": ["<", now]},
+			fields=["name", "scheduled_from", "scheduled_to"]):
+		if get_datetime(r.scheduled_to or add_to_date(r.scheduled_from, minutes=60)) < now:
+			frappe.db.set_value("Meeting Schedule", r.name, "status", "Passed Due", update_modified=False)
+
 
 def send_reminders():
 	"""Every 15 minutes: before each scheduled meeting, Meetings Bot reminds the people in it, each about their own

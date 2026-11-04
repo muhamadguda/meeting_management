@@ -96,10 +96,13 @@ frappe.ui.form.on('Meeting Schedule', Object.assign({}, elevatemeet_department_e
 		// a smaller Meeting Agenda box
 		frm.fields_dict.meeting_agenda && frm.fields_dict.meeting_agenda.$input && frm.fields_dict.meeting_agenda.$input.css({ height: '72px', 'min-height': '72px' });
 		if (frm.doc.status && !frm.is_new()) {
-			frm.set_intro(frm.doc.status === "Cancelled" ? __("This meeting was cancelled.") :
-				frm.doc.status === "Held" ? __("This meeting was held.") :
+			// 4 Nov 2026: Done and Passed Due (Passed Due is set by itself when a Scheduled meeting's end time passes)
+			const st = frm.doc.status;
+			frm.set_intro(st === "Cancelled" ? __("This meeting was cancelled.") :
+				st === "Held" || st === "Done" ? __("This meeting is done.") :
+				st === "Passed Due" ? __("This meeting's time has passed. Set the status to Done, Held or Cancelled.") :
 				__("Elevate attendees get a calendar invite when you save, and a Raven reminder an hour before."),
-				frm.doc.status === "Cancelled" ? "red" : frm.doc.status === "Held" ? "green" : "blue");
+				st === "Cancelled" ? "red" : st === "Held" || st === "Done" ? "green" : st === "Passed Due" ? "orange" : "blue");
 		}
 		frm.remove_custom_button(__("Cancel Meeting"));
 		if (!frm.is_new() && frm.doc.status === "Scheduled") {

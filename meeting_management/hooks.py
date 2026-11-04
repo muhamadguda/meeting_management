@@ -135,7 +135,7 @@ doc_events = {
 }
 
 scheduler_events = {
-	"cron": {"*/15 * * * *": ["meeting_management.elevatemeet.send_reminders"]},
+	"cron": {"*/15 * * * *": ["meeting_management.elevatemeet.send_reminders", "meeting_management.elevatemeet.mark_passed_due"]},
 }
 
 after_migrate = ["meeting_management.elevatemeet.make_bot"]

@@ -36,7 +36,7 @@ def execute(filters=None):
 		key = (r.meeting_arranged_by or "", week)
 		g = groups.setdefault(key, {"organiser": key[0], "week": week, "scheduled": 0, "held": 0, "cancelled": 0, "notes": 0, "proposals": 0})
 		g["scheduled"] += 1
-		g["held"] += r.status == "Held"
+		g["held"] += r.status in ("Held", "Done")
 		g["cancelled"] += r.status == "Cancelled"
 		g["notes"] += r.name in notes
 		g["proposals"] += bool(r.opportunity and r.opportunity in proposed)

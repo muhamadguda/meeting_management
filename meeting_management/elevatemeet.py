@@ -3,6 +3,7 @@
 - BD link: a deal made from a confirmed BD meeting (Log Call > Meeting Confirmed) gets a Meeting Schedule; the
   schedule follows its meeting (Event) when it moves, is cancelled or held. Submitting the meeting notes marks the
   deal Meeting Held, which is what the BD KPI counts.
+- BD booking (12 Nov 2026): a Raven message when a BD meeting is booked, to the organiser, attendees and the head of BD.
 - Reminders: a Raven message about an hour before, to the organiser and the Elevate attendees.
 - Invites: a calendar invite (.ics) from the default outgoing account to the organiser and Elevate attendees, again
   when the time or the attendees change, and a cancellation. The client is emailed only with "Send to Client".
@@ -440,6 +441,8 @@ def send_staff_invites(doc):
 	sequence = (doc.invite_sequence or 0) + (1 if previous else 0)
 	if removed:
 		send_ics(doc, removed, sequence, cancel=True)
+	if doc.get("bd_event"):
+		bd_booking_raven(doc, [u for u in users if frappe.db.get_value("User", u, "email") not in previous], first=not previous)
 	head = frappe.db.get_value("User", OPS_HEAD, "email")
 	if not previous and head in emails and is_ops_interview(doc):
 		ops_booking_notice(doc, emails, sequence, head)
@@ -504,6 +507,34 @@ def send_ics(doc, recipients, sequence, cancel=False, message=None):
 		reference_doctype="Meeting Schedule",
 		reference_name=doc.name,
 	)
+
+
+BD_HEAD = "mohamed.yassin@elevateholding.net"   # user, 12 Nov 2026: told on Raven about every BD meeting booked
+
+
+def bd_booking_raven(doc, users, first=True):
+	"""user, 12 Nov 2026: a BD meeting was booked (Log Call > Meeting Booked). Meetings Bot sends a Raven DM to the
+	organiser, the Elevate attendees and the head of BD (Mohamed Yassin). People added to the meeting later get it then."""
+	if "raven" not in frappe.get_installed_apps() or not frappe.db.exists("Raven Bot", BOT):
+		return
+	if first:
+		users = list(users) + [BD_HEAD]
+	users = [u for u in dict.fromkeys(users) if u and is_staff(u) and frappe.db.exists("Raven User", {"user": u})]
+	if not users:
+		return
+	esc = frappe.utils.escape_html
+	rows = reminder_lines(doc)[1]
+	link = get_url_to_form("Meeting Schedule", doc.name)
+	raven = ("<p><strong>" + esc(_("New BD meeting booked")) + "</strong></p><p><b>" + esc(title(doc)) + "</b><br>"
+		+ "<br>".join("<b>" + esc(k) + ":</b> " + esc(v) for k, v in rows) + "</p>"
+		+ '<p><a href="' + link + '">' + _("Open the meeting") + "</a></p>")
+	for u in users:
+		try:
+			if u not in staff_recipients(doc) and not frappe.has_permission("Meeting Schedule", "read", doc=doc, user=u):
+				frappe.share.add_docshare("Meeting Schedule", doc.name, u, read=1, notify=0, flags={"ignore_share_permission": True})
+			frappe.get_doc("Raven Bot", BOT).send_direct_message(u, raven)
+		except Exception:
+			frappe.log_error(title="Meetings Bot: BD booking DM failed", message=frappe.get_traceback())
 
 
 def ops_booking_notice(doc, emails, sequence, head):

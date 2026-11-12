@@ -45,9 +45,14 @@ def lead_get_data(data):
 		'dynamic_links': {
 			'party_name': ['Lead', 'quotation_to'],
 		},
+		# 12 Nov 2026 (user): the lead's Lead Company (Prospect) in Connections, opening that company. The lead holds the
+		# link itself (custom_prospect), so it is an internal link.
+		'internal_links': {
+			'Prospect': 'custom_prospect',
+		},
 		'transactions': [
 			{
-				'items': ['Opportunity', 'Quotation', 'Meeting Schedule']
+				'items': ['Prospect', 'Opportunity', 'Quotation', 'Meeting Schedule']
 			},
 		]
 	}

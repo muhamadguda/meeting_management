@@ -491,6 +491,17 @@ def default_sender():
 
 def send_ics(doc, recipients, sequence, cancel=False, message=None):
 	when = format_datetime(doc.scheduled_from, "EEEE d MMM yyyy, HH:mm")
+	attachments = [{"fname": "invite.ics", "fcontent": ics(doc, recipients, sequence, cancel)}]
+	if not cancel and not message:
+		# user, 18 Nov 2026: the automatic invite is the agreed meeting mail (as Send Mail), with the calendar file:
+		# ONE email, To the attendees, CC the organiser, everyone sees both
+		organiser = frappe.db.get_value("User", doc.meeting_arranged_by, "email") if doc.meeting_arranged_by else None
+		to = [e for e in recipients if e != organiser] or list(recipients)
+		cc = [e for e in recipients if e not in to]
+		heading, body = meeting_mail_parts(doc, to, cc, doc.meeting_arranged_by or frappe.session.user)
+		frappe.sendmail(recipients=to, cc=cc, subject=_("Invitation: {0}").format(heading) + " - " + when, message=body,
+			attachments=attachments, reference_doctype="Meeting Schedule", reference_name=doc.name, expose_recipients="header")
+		return
 	subject = (_("Cancelled: {0}") if cancel else _("Invitation: {0}")).format(title(doc) + " - " + when)
 	body = message or (
 		"<p>" + (_("This meeting was cancelled.") if cancel else _("You're invited to this meeting.")) + "</p>"
@@ -503,7 +514,7 @@ def send_ics(doc, recipients, sequence, cancel=False, message=None):
 		recipients=recipients,
 		subject=subject,
 		message=body,
-		attachments=[{"fname": "invite.ics", "fcontent": ics(doc, recipients, sequence, cancel)}],
+		attachments=attachments,
 		reference_doctype="Meeting Schedule",
 		reference_name=doc.name,
 	)
@@ -712,18 +723,11 @@ def parse_emails(value):
 	return list(dict.fromkeys(e for e in items if frappe.utils.validate_email_address(e)))
 
 
-@frappe.whitelist()
-def send_meeting_mail(name, to, cc=None):
-	"""The "Send Mail" button (user, 3 Nov 2026): ONE email with To and CC, so everyone sees who got it; the meeting in
-	the reminder's layout with its Notes. The "Open the meeting" button is left out when someone outside Elevate is on
-	it (they can't sign in)."""
-	s = frappe.get_doc("Meeting Schedule", name)
-	s.check_permission("write")
-	to, cc = parse_emails(to), parse_emails(cc)
-	cc = [e for e in cc if e not in to]
-	if not to:
-		frappe.throw(_("Add at least one address in To."))
-	everyone = to + cc
+def meeting_mail_parts(s, to, cc, sender_user):
+	"""The agreed meeting mail (user, 3-4 Nov 2026): heading, then When / To / CC / Organiser rows, Notes and the "Open the
+	meeting" button (only when everyone on it is Elevate staff). Used by Send Mail and, since 18 Nov 2026 (user), by the
+	invite sent automatically when a meeting is saved."""
+	everyone = list(to) + list(cc)
 	staff = set(frappe.get_all("User", filters={"email": ["in", everyone], "enabled": 1, "user_type": "System User"}, pluck="email"))
 	with_button = all(e in staff for e in everyone)
 	rows = reminder_lines(s)[1]
@@ -731,7 +735,7 @@ def send_meeting_mail(name, to, cc=None):
 	if s.get("meeting_type") == "Internal Meeting":
 		# user, 4 Nov 2026: the title = the sender's department - the meeting's chosen departments (the people's
 		# departments only when none was chosen); the table shows To and CC by name instead of "With"
-		me = frappe.db.get_value("User", frappe.session.user, "email")
+		me = frappe.db.get_value("User", sender_user, "email")
 
 		def names_of(emails):
 			out = []
@@ -740,7 +744,7 @@ def send_meeting_mail(name, to, cc=None):
 				out.append(person_name(u) if u else e)
 			return out
 
-		mine = (frappe.db.get_value("Employee", {"user_id": frappe.session.user, "status": "Active"}, "department")
+		mine = (frappe.db.get_value("Employee", {"user_id": sender_user, "status": "Active"}, "department")
 			or frappe.db.get_value("Employee", {"user_id": s.meeting_arranged_by, "status": "Active"}, "department"))
 		theirs = [d for d in chosen_departments(s) if d != mine]
 		if not theirs:
@@ -758,6 +762,21 @@ def send_meeting_mail(name, to, cc=None):
 		+ ('<p style="font-weight:bold;margin:18px 0 4px">' + _("Notes") + "</p><div>" + notes + "</div>" if notes.strip() else "")
 		+ ('<p style="margin:20px 0"><a href="' + link + '" style="background:#e5306b;color:#ffffff;text-decoration:none;border-radius:6px;padding:11px 22px;font-weight:bold;display:inline-block">' + _("Open the meeting") + "</a></p>" if with_button else "")
 		+ "</div>")
+	return heading, body
+
+
+@frappe.whitelist()
+def send_meeting_mail(name, to, cc=None):
+	"""The "Send Mail" button (user, 3 Nov 2026): ONE email with To and CC, so everyone sees who got it; the meeting in
+	the reminder's layout with its Notes. The "Open the meeting" button is left out when someone outside Elevate is on
+	it (they can't sign in)."""
+	s = frappe.get_doc("Meeting Schedule", name)
+	s.check_permission("write")
+	to, cc = parse_emails(to), parse_emails(cc)
+	cc = [e for e in cc if e not in to]
+	if not to:
+		frappe.throw(_("Add at least one address in To."))
+	heading, body = meeting_mail_parts(s, to, cc, frappe.session.user)
 	subject = heading + (" - " + format_datetime(s.scheduled_from, "EEEE d MMM, HH:mm") if s.scheduled_from else "")
 	# expose_recipients="header": everyone sees the real To and CC (Frappe otherwise puts each person alone in To)
 	frappe.sendmail(recipients=to, cc=cc, subject=subject, message=body, reference_doctype="Meeting Schedule", reference_name=s.name,
